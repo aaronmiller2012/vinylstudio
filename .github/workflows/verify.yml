@@ -1,0 +1,229 @@
+name: VinylStudio V3 gated qualification
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      VINYL_PRIVACY_URL: ${{ vars.VINYL_PRIVACY_URL }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '21'
+      # The host gates compile engines against JTS directly with javac. A fresh runner has no
+      # Gradle cache, so without this every run stopped at the first gate ("JTS 1.20.0 jar
+      # unavailable", exit 4) and no later gate ran. Pinned by SHA-256.
+      - name: Host JTS 1.20.0 (pinned)
+        run: |
+          JAR="$RUNNER_TEMP/jts-core-1.20.0.jar"
+          curl -fsSL --retry 3 --connect-timeout 15 --max-time 180 \
+            'https://repo.maven.apache.org/maven2/org/locationtech/jts/jts-core/1.20.0/jts-core-1.20.0.jar' -o "$JAR"
+          echo '6a783d8f9dba3d3cf7265435f134402f63c05838aa6cbcc4297ad3a5b2842baf  '"$JAR" | sha256sum -c -
+          echo "VINYL_JTS_JAR=$JAR" >> "$GITHUB_ENV"
+      - name: Build 555 chainmail visibility and parallel geometry
+        run: bash tests/run-v3-product555-gate.sh
+      - name: Build 554 project format 2, kept cut sheets, weed score, camera, accessibility
+        run: bash tests/run-v3-product554-gate.sh
+      - name: Build 553 product readiness (library, sharing, transfer, pairing, gate manifest)
+        run: bash tests/run-v3-product553-gate.sh
+      - name: Build 552 physical geometry, curve measurement and layer order
+        run: bash tests/run-v3-precision552-gate.sh
+      - name: Build 551 project transition ownership and durable source staging
+        run: bash tests/run-v3-reliability551-gate.sh
+      - name: Build 550 render ownership and lifecycle stability
+        run: bash tests/run-v3-stability550-gate.sh
+      - name: Build 549 measurement, review ownership and assembly regression
+        run: bash tests/run-v3-workshop549-gate.sh
+      - name: Milestone A4 line cut preflight and B2-B4 coverage
+        run: bash tests/run-v3-milestone-ab-completion-gate.sh
+      - name: Wolfram math repairs and staged cut export safety
+        run: bash tests/run-v3-math-repair-gate.sh
+      - name: Render speed and cancellation parity
+        run: bash tests/run-v3-render-speed-gate.sh
+      - name: Opaque Overprint palette preview, saved ordering, visibility and export parity
+        run: bash tests/run-v3-overlay-swatch-gate.sh
+      - name: Consensus color and render-time cache regression
+        run: bash tests/run-v3-consensus-color-speed-gate.sh
+      - name: Build 518 slider, overprint and Snip source and behavior regressions
+        run: bash tests/run-v3-slider-overprint-repair-gate.sh
+      - name: Prismatic diagonal continuous opaque ribbons and palette geometry
+        run: bash tests/run-v3-prismatic-weave-gate.sh
+      - name: Smart palette count and identity regression
+        run: bash tests/run-v3-smart-palette-gate.sh
+      - name: Render pipeline exact parity and bounded cache
+        run: bash tests/run-v3-render-pipeline-gate.sh
+      - name: Indexed safety, geometry cache, stencil parity and profile registry
+        run: bash tests/run-v3-performance-architecture-gate.sh
+      - name: New user guide and tips
+        run: bash tests/run-v3-material-calibration-gate.sh && bash tests/run-v3-user-guide-gate.sh
+      - name: Portrait detail, scale accents and camouflage fidelity
+        run: bash tests/run-v3-portrait-detail-restore-gate.sh
+      - name: Selective raster motif contour polish
+        run: bash tests/run-v3-raster-motif-polish-gate.sh
+      - name: Per-sheet fixed precision vector Boolean engine
+        run: bash tests/run-v3-vector-boolean-gate.sh
+      - name: Perceptual swatch regression
+        run: bash tests/run-v3-perceptual-swatch-gate.sh
+      - name: Beta 10 shared perceptual swatch mapping
+        run: bash tests/run-v3-beta10-tonal-all-gate.sh
+      - name: Current v3 host regressions
+        run: bash tests/run-v3-beta4-host-gate.sh
+      - name: Milestone A1 physical-artboard and cut geometry tests
+        run: bash tests/run-v3-milestone-a1-gate.sh
+      - name: Milestone A2 Snip and physical coordinate-frame tests
+        run: bash tests/run-v3-milestone-a2-gate.sh
+      - name: Milestone A3 fractional Snip + B1 physical assembly
+        run: bash tests/run-v3-milestone-a3-b1-gate.sh
+      - name: Milestone B2 edge-preserving photo motif sampling
+        run: bash tests/run-v3-milestone-b2-gate.sh
+      - name: Milestone B2 Lines edge fidelity and physical carrier regression
+        run: bash tests/run-v3-milestone-b2-lines-gate.sh
+      - name: Milestone A line repair and C1 export complexity
+        run: bash tests/run-v3-milestone-ab-wrap-c1-gate.sh
+      - name: Milestone C2 bounded previews and cancellation
+        run: bash tests/run-v3-milestone-c2-gate.sh
+      - name: Milestone A/B/C3 coverage-preserving previews and release qualification
+        run: bash tests/run-v3-milestone-c3-gate.sh
+      - name: Shapes area-normalized coverage, cut geometry and frozen routes
+        run: bash tests/run-v3-shapes-area-tone-gate.sh
+      - name: Dense Shapes cut export geometry and safety review
+        run: bash tests/run-v3-dense-export-gate.sh
+      - name: Star minimum-cut-size policy and dense SVG production checks
+        run: bash tests/run-v3-star-cut-safe-gate.sh
+      - name: Pre-save verified cut ZIP, review notices and failed-save recovery
+        run: bash tests/run-v3-prepared-export-gate.sh
+      - name: Snip contour repair and Cricut mat-fitting registration
+        run: bash tests/run-v3-beta25-snip-mat-gate.sh
+      - name: Live art styles and seven cutter targets SVG/DXF matrix
+        run: bash tests/run-v3-beta26-export-matrix-gate.sh
+      - name: Quilling Ribbons, Marbled Ink and Quilled Marbling render/cut audit
+        run: bash tests/run-v3-organic-flow-gate.sh
+      - name: Organic Flow physical layer retention and smoothing
+        run: bash tests/run-v3-organic-smoothing-gate.sh
+      - name: Organic Flow no-op regression and non-worsening local cut safety
+        run: bash tests/run-v3-organic-nochange-gate.sh
+      - name: Organic Flow 50-percent fixed smoothing and optimized geometry parity
+        run: bash tests/run-v3-organic-render-optimization-gate.sh
+      - name: Organic Flow 11-inch render stress, provisional preview and cut-preflight parity
+        run: bash tests/run-v3-organic-render-recovery-gate.sh
+      - name: Selective smooth contours for fingerprint and woodgrain; safe SVG exports
+        run: bash tests/run-v3-selective-ridge-polish-gate.sh
+      - name: Overprinted cell portraits (4 types) — per-sheet vector cut-safety and Snip
+        run: bash tests/run-v3-overprint-cells-gate.sh
+      - name: Retired style guards, saved project safety, and remaining Overprint styles
+        run: bash tests/run-v3-style-retirement-gate.sh
+      - name: Selectable styles and retired Pop ID selection regression
+        run: bash tests/run-v3-style-selection-gate.sh
+      - name: Poster nine-layer color/Layers/export tests and historical JS fixture parity
+        run: bash tests/run-v3-pop-poster-gate.sh
+      - name: Source archive metadata consistency (including negative fixtures)
+        run: python3 tests/test-v3-release-archive-contract.py && python3 tests/check-v3-release-consistency.py
+      - name: Fix7 finite-load, SVG and staged-cache regressions
+        run: bash tests/run-v3-fix7-hardening-gate.sh
+      - name: Fix8 vinyl/waste cut inspection and safety gate repairs
+        run: |
+          bash tests/run-v3-fix8-cut-tune-gate.sh
+          bash tests/run-v3-fix8-audit-repair-gate.sh
+      - name: Fix9 accepted-project state and physical palette regressions
+        run: bash tests/run-v3-color-pipeline-repair-gate.sh
+      - name: Fix14 and Fix15 Tonal Stencil photo-to-vinyl palette regressions
+        run: |
+          bash tests/run-v3-fix14-tonal-palette-gate.sh
+          bash tests/run-v3-fix15-tonal-order-gate.sh
+      - name: Fix10 material-gap and layered-mosaic option regressions
+        run: bash tests/run-v3-fix10-geometry-options-gate.sh
+      - name: Fix11 portrait Snip tonal parity and cut-safe gradient recovery
+        run: bash tests/run-v3-snip-detail-gate.sh
+      - name: Fix12 crop and Snip final-vector geometry parity
+        run: bash tests/run-v3-fix12-crop-parity-gate.sh
+      - name: Fix13 full-photo then post-conversion Snip vector clipping
+        run: bash tests/run-v3-fix13-postsnip-vectors-gate.sh
+      - name: Current release consistency and fail-closed archive tests
+        run: bash tests/run-v3-release-hardening-gate.sh
+      # >>> synced from tests/gates.manifest by scripts/sync-gates.py (do not edit by hand)
+      - name: Gate run-v3-m5-release-gate
+        run: bash tests/run-v3-m5-release-gate.sh
+      - name: Gate run-v3-prismatic-ribbon-gate
+        run: bash tests/run-v3-prismatic-ribbon-gate.sh
+      - name: Gate run-v3-m5-export-mat-gate
+        run: bash tests/run-v3-m5-export-mat-gate.sh
+      - name: Gate run-v3-m5-lifecycle-gate
+        run: bash tests/run-v3-m5-lifecycle-gate.sh
+      - name: Gate run-v3-m5-color-gate
+        run: bash tests/run-v3-m5-color-gate.sh
+      - name: Gate run-v3-m5-prismatic-perf-gate
+        run: bash tests/run-v3-m5-prismatic-perf-gate.sh
+      - name: Gate run-v3-m5-crochet-smoothing-gate
+        run: bash tests/run-v3-m5-crochet-smoothing-gate.sh
+      - name: Gate run-v3-m5-lines-gate
+        run: bash tests/run-v3-m5-lines-gate.sh
+      - name: Gate run-v3-m5-linocut-gate
+        run: bash tests/run-v3-m5-linocut-gate.sh
+      - name: Gate run-v3-m4-quality-gate
+        run: bash tests/run-v3-m4-quality-gate.sh
+      - name: Gate run-v3-m3-editor-state-gate
+        run: bash tests/run-v3-m3-editor-state-gate.sh
+      - name: Gate run-v3-m3-library-reliability-gate
+        run: bash tests/run-v3-m3-library-reliability-gate.sh
+      - name: Gate run-v3-product556-gate
+        run: bash tests/run-v3-product556-gate.sh
+      - name: Gate run-v3-export-sheet-contract-gate
+        run: bash tests/run-v3-export-sheet-contract-gate.sh
+      - name: Gate run-v3-m2-render-gate
+        run: bash tests/run-v3-m2-render-gate.sh
+      - name: Gate run-v3-slider-guide-gate
+        run: bash tests/run-v3-slider-guide-gate.sh
+      - name: Gate run-v3-highgain-optimization-gate
+        run: bash tests/run-v3-highgain-optimization-gate.sh
+      - name: Gate run-v3-research-defect-gate
+        run: bash tests/run-v3-research-defect-gate.sh
+      - name: Gate run-v3-organic-feature-preservation-gate
+        run: bash tests/run-v3-organic-feature-preservation-gate.sh
+      - name: Gate run-v3-organic-medium-contours-gate
+        run: bash tests/run-v3-organic-medium-contours-gate.sh
+      - name: Gate run-v3-registration-gate
+        run: bash tests/run-v3-registration-gate.sh
+      - name: Gate run-v3-beta9-tonal-gate
+        run: bash tests/run-v3-beta9-tonal-gate.sh
+      - name: Gate run-v3-host-gate
+        run: bash tests/run-v3-host-gate.sh
+      - name: Gate run-v3-golden-gate
+        run: bash tests/run-v3-golden-gate.sh
+      # <<< end synced gates
+      - name: Android platform 36
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          if command -v sdkmanager >/dev/null 2>&1; then
+            SDKMGR="$(command -v sdkmanager)"
+          else
+            SDKMGR="$(find "$SDK_ROOT/cmdline-tools" -maxdepth 3 -type f -name sdkmanager -print -quit 2>/dev/null || true)"
+          fi
+          test -n "$SDKMGR" || { echo 'Android SDK command-line tools unavailable'; exit 2; }
+          "$SDKMGR" --sdk_root="$SDK_ROOT" 'platforms;android-36'
+      - name: Debug JUnit, lint, and Android APKs
+        run: ./gradlew --no-daemon --max-workers=1 :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Release JUnit, lint, and minified R8 APK and bundle
+        if: ${{ vars.VINYL_PRIVACY_URL != '' }}
+        run: ./gradlew --no-daemon --max-workers=1 :app:testReleaseUnitTest :app:lintRelease :app:assembleRelease :app:bundleRelease
+      - name: Verify release output and mapping
+        if: ${{ vars.VINYL_PRIVACY_URL != '' }}
+        run: |
+          test -s app/build/outputs/mapping/release/mapping.txt
+          test -s app/build/outputs/bundle/release/app-release.aab
+          find app/build/outputs/apk/release -name '*.apk' -size +0c -print -quit | grep -q .
+      - name: Archive release symbols
+        if: ${{ vars.VINYL_PRIVACY_URL != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vinylstudio-v3-code561-r8-mapping
+          path: app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: error
+          retention-days: 90

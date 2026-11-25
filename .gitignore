@@ -1,0 +1,27 @@
+# Build and local credentials
+.gradle/
+**/build/
+local.properties
+*.apk
+*.aab
+*.apks
+*.keystore
+*.jks
+*.key
+*.p12
+*.pem
+*.asc
+output-metadata.json
+lint-results*.xml
+lint-results*.html
+lint-results*.txt
+# Editor and language tooling
+.idea/
+.vscode/
+*.iml
+__pycache__/
+*.pyc
+.DS_Store
+# Packaging is distributed as release artifacts, never committed to source.
+*-source.zip
+*TransferKit*.zip

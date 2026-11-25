@@ -1,0 +1,76 @@
+category,current_label,proposed_short_label,thumbnail_key,selector,distinctive_visual
+Multilayer,Tonal Stencil,Tonal Stencil,multilayer.tonal,specialty:6,"Five broad, organically shaped nested contour plates, large visible stacked silhouette."
+Multilayer,Voronoi Mosaic,Voronoi Mosaic,multilayer.voronoi,specialty:8,Seven irregular convex polygon regions with unequal size and crisp dark shared edges; no circles.
+Multilayer,Grid Mosaic,Grid Mosaic,multilayer.grid,specialty:9,A uniform 5×4 grid of tiny photographic color rectangles with one diagonal tonal transition.
+Multilayer,Layered Cells,Layered Cells,multilayer.layered_cells,specialty:10,"A sparse 2×3 grid of large cells, each showing two differently colored nested shapes."
+Multilayer,Offset Cells,Offset Cells,multilayer.offset_cells,specialty:19,Four rows of compact rectangular tiles staggered exactly half a cell; no nested shapes.
+Multilayer,Bottle Caps,Bottle Caps,multilayer.bottle_caps,specialty:20,"Six circular caps in staggered rows, each with circular inset rim and a few short radial crimps."
+Multilayer,Fish Scales,Fish Scales,multilayer.fish_scales,specialty:21,Interlocking curved scallop boundaries with pointed upper junctions and full rounded lower lobes; no isolated ovals or inner smiles.
+Multilayer,Weighted Stipple,Weighted Stipple,multilayer.weighted_stipple,specialty:18,Variable-radius randomly spaced solid dots arranged dark-and-dense on left to light-and-sparse on right.
+Multilayer,Low Poly,Low Poly,multilayer.low_poly,newstyle:0,Asymmetric triangulation of a recognizable angular face fragment using 7–9 large facets.
+Multilayer,Stained Glass,Stained Glass,multilayer.stained_glass,newstyle:1,Unequal jewel-tone polygons separated by a thick continuous black lead network.
+Multilayer,Topographic,Topographic,multilayer.topographic,newstyle:6,Three raised topographic nested islands as filled closed color bands with gaps.
+Multilayer,Tessellation,Tessellation,multilayer.tessellation,newstyle:10,"Exact repeating mixed-polygon tiling, e.g. hexagon and triangle cells, WITHOUT decorative motifs."
+Multilayer,Prismatic Diagonal Portrait,Prismatic Diagonal,multilayer.prismatic_diagonal,newstyle:26,Overlapping serpentine diagonal ribbons across multiple cells; solid foundation.
+Shapes,Round dots,Round Dots,shape.round,VinylEngine:ROUND=0,Six evenly sized solid circular motifs in a bold diagonal array; no stipple-size gradient.
+Shapes,Square dots,Squares,shape.square,VinylEngine:SQUARE=1,"Four large isolated solid squares at quarter turns, with clear negative-space gutters."
+Shapes,Ellipses,Ellipses,shape.ellipse,VinylEngine:ELLIPSE=2,Five long filled ellipses rotating progressively across the thumbnail.
+Shapes,Diamonds,Diamonds,shape.diamond,VinylEngine:DIAMOND=3,"Three large sharp-corner rhombi rotated at 45°, separated with high contrast."
+Shapes,Hexagons,Hexagons,shape.hexagon,VinylEngine:HEX=6,Three separated large hexagon stamps in a loose triangular composition; not honeycomb tessellation.
+Shapes,Stars,Stars,shape.star,VinylEngine:STAR=11,One large five-point star surrounded by three tiny stars; clear silhouette.
+Shapes,Crosses,Crosses,shape.cross,VinylEngine:CROSS=10,Three chunky plus-sign stamps at different rotations; not a generic grid.
+Shapes,Triangles,Triangles,shape.triangle,VinylEngine:TRIANGLE=21,"Four isolated equal-sided triangular stamps pointing different directions, not a faceted network."
+Shapes,Octagons,Octagons,shape.octagon,VinylEngine:OCTAGON=22,Three eight-sided stop-sign-like solid stamps with a flat top; not squares.
+Shapes,Rounded squares,Rounded Squares,shape.rounded_square,VinylEngine:ROUNDED_SQUARE=23,"Two oversized filled rounded-square stamps with obvious corner radius, separated."
+Shapes,Teardrops,Teardrops,shape.teardrop,VinylEngine:TEARDROP=24,"Three pointed-top drop stamps falling diagonally, each with an oval rounded bottom."
+Shapes,Hearts,Hearts,shape.heart,VinylEngine:HEART=25,"Three filled heart stamps, one large, two small; recognizable double upper lobes."
+Shapes,Capsules,Capsules,shape.capsule,VinylEngine:CAPSULE=26,Five elongated pill shapes staggered diagonally and rotated at different angles.
+Shapes,Dashes,Dashes,shape.dash,VinylEngine:DASH=4,Array of 12 independent short oblong dash motifs in staggered rows; never join into lines.
+Shapes,ASCII screen,ASCII Screen,shape.ascii,VinylEngine:ASCII=27,Large monospaced block of @#%*+ glyphs with dark-to-light density; use cached glyph paths.
+Lines,Variable-width lines,Variable Width,line.variable_width,VinylEngine:LINE=5,"Four continuous mostly straight ribbons with strong swelling toward one end, all visibly different widths."
+Lines,Straight lines,Straight Lines,line.straight,VinylEngine:STRAIGHT=12,"Six precisely parallel uniformly thick slanted straight ribbons, no bends."
+Lines,Contour lines,Contour Lines,line.contour,VinylEngine:CONTOUR=13,Six smooth streamlines making a clear S-shaped bend around a central void.
+Lines,Wavy lines,Wavy Lines,line.wavy,VinylEngine:WAVE=8,Four exaggerated sinusoidal waves with repeated consistent crests and troughs.
+Lines,Engraving hatches,Engraving Hatches,line.engraving_hatches,VinylEngine:HATCH=9,"Short diagonal parallel cuts with tapered ends, density/width shading a circular shadow; no eye artwork."
+Lines,Crosshatch,Crosshatch,line.crosshatch,VinylEngine:CROSSHATCH=14,Clearly visible intersecting +45° and −45° ribbon groups forming a dark crosshatch patch.
+Lines,Zigzag lines,Zigzag Lines,line.zigzag,VinylEngine:ZIGZAG=16,Four sharp-angled continuous sawtooth paths with pointed V corners.
+Lines,Broken lines,Broken Lines,line.broken,VinylEngine:BROKEN=17,Five long parallel tracks each interrupted by distinctly different sized blank gaps.
+Single Line,Spiral,Spiral,single.spiral,ContinuousLineModes:SPIRAL,One continuous inward Archimedean spiral with 5 well-separated revolutions.
+Single Line,Adaptive Hilbert,Hilbert,single.hilbert,ContinuousLineModes:ADAPTIVE_HILBERT,"Orthogonal U-shaped recursive Hilbert traversal, about three levels, one connected line."
+Single Line,Gosper,Gosper,single.gosper,ContinuousLineModes:GOSPER,Hexagonal dragon-curve motif with repeated 60° angles; a long single line.
+Single Line,Peano,Peano,single.peano,ContinuousLineModes:PEANO,Dense 3×3 recursively serpentine orthogonal route distinct from Hilbert U-turns.
+Single Line,Wunderlich,Wunderlich,single.wunderlich,ContinuousLineModes:WUNDERLICH,"Meandering orthogonal fractal with staggered staircase-like loops, not a generic zigzag."
+Single Line,Moore,Moore,single.moore,ContinuousLineModes:MOORE,One continuous CLOSED square-filling loop with a clear ring-like return.
+Single Line,Coil,Coil,single.coil,ContinuousLineModes:COIL,"Long rounded serpentine coils drawn horizontally, not an inward spiral."
+Art techniques,TSP Drawing,TSP Drawing,art.tsp,newstyle:2,Single continuous irregular travel route connecting 10 visible scattered anchor dots; not a square-wave line.
+Art techniques,Linocut,Linocut,art.linocut,newstyle:3,Bold hand-carved curving gouges around a recognizable nose/cheek contour; several tapered filled ribbons.
+Art techniques,Truchet Tiles,Truchet,art.truchet,newstyle:4,A 3×3 grid of alternating quarter-circle tile connectors with a visibly continuous maze-like path.
+Art techniques,Banknote Engraving,Banknote,art.banknote,newstyle:9,One high-contrast engraved eye fragment made from many thin tapered hatches plus narrow crossing shadows.
+Art techniques,Organic Marquetry Portrait,Marquetry,art.marquetry,newstyle:11,Smooth nested organic color inlays with visible wood-like boundaries and no regular grid.
+Art techniques,Fingerprint Portrait,Fingerprint,art.fingerprint,newstyle:12,Concentric whorled ridges bending around a portrait core with image-responsive spacing.
+Art techniques,Reduction Woodcut,Reduction Cut,art.reduction_woodcut,newstyle:14,Three registered carved color passes with progressively smaller bold relief shapes.
+Art techniques,Woven Ribbon Portrait,Woven Ribbon,art.woven_ribbon,newstyle:15,Alternating over-under curved warp and weft ribbons that vary with portrait tone.
+Art techniques,Flowing Woodgrain Portrait,Woodgrain,art.woodgrain,newstyle:21,Nested flowing grain lines wrapping around facial structure with occasional knots.
+Art techniques,Torn-Paper Collage,Torn Collage,art.torn_collage,newstyle:24,Layered irregular color regions with visibly jagged torn-paper edges and overlaps.
+Tessellation variant,Square,Square,tess.variant.00,TessellationMotifEngine:pattern=0,Uniform right-angled square lattice with alternating solid tones.
+Tessellation variant,Equilateral triangles,Equilateral triangles,tess.variant.01,TessellationMotifEngine:pattern=1,"A network of equal equilateral triangles, alternating up/down orientations."
+Tessellation variant,Hexagon honeycomb,Hexagon honeycomb,tess.variant.02,TessellationMotifEngine:pattern=2,"Exact edge-sharing hexagonal cells in a honeycomb, no inset motif."
+Tessellation variant,Trihexagonal,Trihexagonal,tess.variant.03,TessellationMotifEngine:pattern=3,Hexagons connected by triangles; show both cell sizes clearly.
+Tessellation variant,Rhombille diamonds,Rhombille diamonds,tess.variant.04,TessellationMotifEngine:pattern=4,Three rhombi meeting at 120° to imply an isometric cube.
+Tessellation variant,Octagon + square,Octagon + square,tess.variant.05,TessellationMotifEngine:pattern=5,Large regular octagons separated by small squares.
+Tessellation variant,Pentagonal weave,Pentagonal weave,tess.variant.06,TessellationMotifEngine:pattern=6,Actual current periodic weave pentagons; do NOT call canonical Cairo.
+Tessellation variant,Rhombitrihexagonal,Rhombitrihexagonal,tess.variant.07,TessellationMotifEngine:pattern=7,"Triangles, squares, and hexagons sharing vertices."
+Tessellation variant,Truncated hexagonal,Truncated hexagonal,tess.variant.08,TessellationMotifEngine:pattern=8,Two large dodecagons with intervening small triangles (3.12.12).
+Tessellation variant,Truncated trihexagonal,Truncated trihexagonal,tess.variant.09,TessellationMotifEngine:pattern=9,"Dodecagon, hexagon and square arrangement (4.6.12)."
+Tessellation variant,Snub trihexagonal,Snub trihexagonal,tess.variant.10,TessellationMotifEngine:pattern=10,Hexagons ringed by chiral triangular fans (3.3.3.3.6).
+Tessellation variant,Kisrhombille,Kisrhombille,tess.variant.11,TessellationMotifEngine:pattern=11,Fine split 30°–60°–90° triangles in alternating orientations.
+Tessellation variant,Tetrakis square,Tetrakis square,tess.variant.12,TessellationMotifEngine:pattern=12,Square patches each divided into four 45°–45°–90° triangles.
+Tessellation variant,Elongated triangular,Elongated triangular,tess.variant.13,TessellationMotifEngine:pattern=13,Stripes of equilateral triangles alternating with square rows (3.3.3.4.4).
+Tessellation variant,Deltoidal trihexagonal,Deltoidal trihexagonal,tess.variant.14,TessellationMotifEngine:pattern=14,Repeating kite quadrilaterals with broad and narrow vertices.
+Tessellation variant,Triakis triangular,Triakis triangular,tess.variant.15,TessellationMotifEngine:pattern=15,Groups of slender isosceles triangles around triangular centers.
+Tessellation variant,Floret pentagonal,Floret pentagonal,tess.variant.16,TessellationMotifEngine:pattern=16,Pentagonal floral clusters with petal-like cyclic arrangement.
+Tessellation variant,Prismatic pentagonal,Prismatic pentagonal,tess.variant.17,TessellationMotifEngine:pattern=17,Convex pentagonal cells aligned into a prismatic-looking repeating lattice.
+Tessellation variant,Running bond,Running bond,tess.variant.18,TessellationMotifEngine:pattern=18,Brick-style equal rectangles shifted half width on every other row.
+Tessellation variant,Basket weave,Basket weave,tess.variant.19,TessellationMotifEngine:pattern=19,Paired perpendicular rectangular groups in a woven checker.
+Tessellation variant,Herringbone,Herringbone,tess.variant.20,TessellationMotifEngine:pattern=20,Alternating 90° orientations of narrow rectangles in a zigzag weave.
+Tessellation variant,Pythagorean squares,Pythagorean squares,tess.variant.21,TessellationMotifEngine:pattern=21,"Interlocking markedly unequal squares, not all the same size."

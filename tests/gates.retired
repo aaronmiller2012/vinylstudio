@@ -1,0 +1,3 @@
+# Gate scripts intentionally NOT in tests/gates.manifest, with the reason.
+# check-gate-manifest.py requires every tests/run-v3-*-gate.sh to be listed in one file.
+tests/run-v3-math-repair-extended-gate.sh	Superseded: its sub-gates run individually; its RC148 chain hits an obsolete RC142 thumbnail-count source assertion (76 vs 75 rows after RC166 retirement). Registration suites moved to run-v3-registration-gate.sh.

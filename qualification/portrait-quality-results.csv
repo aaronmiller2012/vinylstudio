@@ -1,0 +1,13 @@
+family,width_in,layers,photo_id,palette_id,snip_id,baseline_version,candidate_version,baseline_feature_score,candidate_feature_score,continuity_pass,swatch_pass,min_cut_pass,operator,notes
+Shapes,6,8,,,,552,553,,,,,,,
+Shapes,11,8,,,,552,553,,,,,,,
+Shapes,15,8,,,,552,553,,,,,,,
+Lines,6,8,,,,552,553,,,,,,,
+Lines,11,8,,,,552,553,,,,,,,
+Lines,15,8,,,,552,553,,,,,,,
+Multilayer,6,8,,,,552,553,,,,,,,
+Multilayer,11,8,,,,552,553,,,,,,,
+Multilayer,15,8,,,,552,553,,,,,,,
+Tessellations,6,8,,,,552,553,,,,,,,
+Tessellations,11,8,,,,552,553,,,,,,,
+Tessellations,15,8,,,,552,553,,,,,,,

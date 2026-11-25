@@ -1,0 +1,4 @@
+f03f93db68d4aa19ae2bd45b54f928b9daeac6dec81ecd25ad17eb630a5c208d  app/src/main/java/com/halftonestudio/VinylEngine.java
+d393812f339e3c3720db2b8bf1f819e57a5f3feefc5e8742a4c7126a1ca68e07  app/src/main/java/com/halftonestudio/TessellationEngine.java
+b7c9d6119f1622f3eb827eec7ab087fb7695508e523eff0b0817e2eedd36c61a  app/src/main/java/com/halftonestudio/LayeredCellPortraitEngine.java
+539bbde83d9df05368f65321e4ae9898a6fc2d8efd29e64effcbbf04e513a3fa  app/src/main/java/com/halftonestudio/MultilayerStencilEngine.java

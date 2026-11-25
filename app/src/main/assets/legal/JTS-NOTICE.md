@@ -1,0 +1,3 @@
+# Third-party geometry library
+
+VinylStudio uses the unmodified LocationTech JTS Topology Suite (`org.locationtech.jts:jts-core:1.20.0`). JTS is available under EPL-2.0 or EDL-1.0. The project distributes the library under its upstream license notices. The upstream source and license terms are at https://github.com/locationtech/jts (tag `jts-1.20.0`); Maven Central hosts the binary and matching sources at https://repo.maven.apache.org/maven2/org/locationtech/jts/jts-core/1.20.0/. Preserve the license and notice files from the dependency when distributing an APK. This notice does not change the licensing of VinylStudio's own source.

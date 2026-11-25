@@ -1,0 +1,83 @@
+plugins { id 'com.android.application' }
+
+// The Play build supplies an actual HTTPS policy URL via an environment variable.
+// Debug/host builds remain usable without publishing a placeholder URL.
+def vinylPrivacyUrl = (System.getenv('VINYL_PRIVACY_URL') ?: '').trim()
+android { namespace 'com.halftonestudio'; compileSdk 36
+    defaultConfig { applicationId 'com.halftonestudio'; minSdk 26; targetSdk 36; testInstrumentationRunner 'com.halftonestudio.StageOneInstrumentation'; versionCode 561; versionName '3.5.0'; resValue 'string', 'privacy_policy_url', vinylPrivacyUrl }
+    // Optional production signing only. No secret is stored in this source archive.
+    signingConfigs {
+        if (System.getenv('VINYL_RELEASE_KEYSTORE') && System.getenv('VINYL_RELEASE_ALIAS') &&
+                System.getenv('VINYL_RELEASE_STORE_PASSWORD') && System.getenv('VINYL_RELEASE_KEY_PASSWORD')) {
+            production {
+                storeFile file(System.getenv('VINYL_RELEASE_KEYSTORE'))
+                storePassword System.getenv('VINYL_RELEASE_STORE_PASSWORD')
+                keyAlias System.getenv('VINYL_RELEASE_ALIAS')
+                keyPassword System.getenv('VINYL_RELEASE_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (signingConfigs.findByName('production') != null) signingConfig signingConfigs.production
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+
+// Host regression runs explicitly via BUILD_ON_NAS.sh, or opt-in Gradle flag.
+tasks.register('hostRegression', Exec) {
+    workingDir rootProject.projectDir
+    commandLine 'bash', '-c', 'bash tests/run-v3-m5-release-gate.sh && bash tests/run-v3-prismatic-ribbon-gate.sh && bash tests/run-v3-m5-export-mat-gate.sh && bash tests/run-v3-m5-lifecycle-gate.sh && bash tests/run-v3-m5-color-gate.sh && bash tests/run-v3-m5-prismatic-perf-gate.sh && bash tests/run-v3-m5-crochet-smoothing-gate.sh && bash tests/run-v3-m5-lines-gate.sh && bash tests/run-v3-m5-linocut-gate.sh && bash tests/run-v3-m4-quality-gate.sh && bash tests/run-v3-m3-editor-state-gate.sh && bash tests/run-v3-m3-library-reliability-gate.sh && bash tests/run-v3-product556-gate.sh && bash tests/run-v3-export-sheet-contract-gate.sh && bash tests/run-v3-m2-render-gate.sh && bash tests/run-v3-slider-guide-gate.sh && bash tests/run-v3-product555-gate.sh && bash tests/run-v3-product554-gate.sh && bash tests/run-v3-product553-gate.sh && bash tests/run-v3-precision552-gate.sh && bash tests/run-v3-reliability551-gate.sh && bash tests/run-v3-stability550-gate.sh && bash tests/run-v3-workshop549-gate.sh && bash tests/run-v3-milestone-ab-completion-gate.sh && bash tests/run-v3-organic-smoothing-gate.sh && bash tests/run-v3-math-repair-gate.sh && bash tests/run-v3-render-speed-gate.sh && bash tests/run-v3-overlay-swatch-gate.sh && bash tests/run-v3-consensus-color-speed-gate.sh && bash tests/run-v3-slider-overprint-repair-gate.sh && bash tests/run-v3-prismatic-weave-gate.sh && bash tests/run-v3-smart-palette-gate.sh && bash tests/run-v3-render-pipeline-gate.sh && bash tests/run-v3-performance-architecture-gate.sh && bash tests/run-v3-material-calibration-gate.sh && bash tests/run-v3-user-guide-gate.sh && bash tests/run-v3-portrait-detail-restore-gate.sh && bash tests/run-v3-raster-motif-polish-gate.sh && bash tests/run-v3-vector-boolean-gate.sh && bash tests/run-v3-perceptual-swatch-gate.sh && bash tests/run-v3-selective-ridge-polish-gate.sh && bash tests/run-v3-overprint-cells-gate.sh && bash tests/run-v3-style-retirement-gate.sh && bash tests/run-v3-style-selection-gate.sh && bash tests/run-v3-organic-render-recovery-gate.sh && bash tests/run-v3-highgain-optimization-gate.sh && bash tests/run-v3-fix7-hardening-gate.sh && bash tests/run-v3-fix8-cut-tune-gate.sh && bash tests/run-v3-fix8-audit-repair-gate.sh && bash tests/run-v3-color-pipeline-repair-gate.sh && bash tests/run-v3-fix14-tonal-palette-gate.sh && bash tests/run-v3-fix15-tonal-order-gate.sh && bash tests/run-v3-fix10-geometry-options-gate.sh && bash tests/run-v3-snip-detail-gate.sh && bash tests/run-v3-fix12-crop-parity-gate.sh && bash tests/run-v3-fix13-postsnip-vectors-gate.sh && bash tests/run-v3-research-defect-gate.sh && bash tests/run-v3-beta26-export-matrix-gate.sh && bash tests/run-v3-organic-flow-gate.sh && bash tests/run-v3-organic-feature-preservation-gate.sh && bash tests/run-v3-organic-nochange-gate.sh && bash tests/run-v3-organic-medium-contours-gate.sh && bash tests/run-v3-organic-render-optimization-gate.sh && bash tests/run-v3-pop-poster-gate.sh && bash tests/run-v3-beta10-tonal-all-gate.sh && bash tests/run-v3-beta4-host-gate.sh && bash tests/run-v3-milestone-a1-gate.sh && bash tests/run-v3-milestone-a2-gate.sh && bash tests/run-v3-milestone-a3-b1-gate.sh && bash tests/run-v3-milestone-b2-gate.sh && bash tests/run-v3-milestone-b2-lines-gate.sh && bash tests/run-v3-milestone-ab-wrap-c1-gate.sh && bash tests/run-v3-milestone-c2-gate.sh && bash tests/run-v3-milestone-c3-gate.sh && bash tests/run-v3-shapes-area-tone-gate.sh && bash tests/run-v3-dense-export-gate.sh && bash tests/run-v3-star-cut-safe-gate.sh && bash tests/run-v3-prepared-export-gate.sh && bash tests/run-v3-beta25-snip-mat-gate.sh && bash tests/run-v3-release-hardening-gate.sh && bash tests/run-v3-registration-gate.sh && bash tests/run-v3-beta9-tonal-gate.sh && bash tests/run-v3-host-gate.sh && bash tests/run-v3-golden-gate.sh'
+}
+if (providers.gradleProperty('withHostRegression').orElse('false').get().toBoolean()) {
+    tasks.named('preBuild').configure { dependsOn tasks.named('hostRegression') }
+}
+
+// W2: privacy disclosure is a prerequisite of *every* release entry point,
+// including direct `./gradlew bundleRelease`, not just a NAS shell wrapper.
+// Debug and host-only tasks must remain usable before the page is published.
+def requireReleasePrivacy = tasks.register('validateReleasePrivacy') {
+    group = 'verification'
+    description = 'Rejects a release variant without a configured public HTTPS privacy URL.'
+    doLast {
+        def candidate = (System.getenv('VINYL_PRIVACY_URL') ?: '').trim()
+        if (!candidate.startsWith('https://'))
+            throw new GradleException('Release blocked: set VINYL_PRIVACY_URL to the published HTTPS privacy policy.')
+        URI parsed
+        try { parsed = new URI(candidate) }
+        catch (Exception invalid) { throw new GradleException('Release blocked: invalid VINYL_PRIVACY_URL.', invalid) }
+        def host = parsed.host?.toLowerCase(java.util.Locale.ROOT)
+        if (!host || parsed.userInfo || parsed.fragment || (parsed.port != -1 && parsed.port != 443) ||
+                host == 'localhost' || host.endsWith('.local') || host.endsWith('.test') ||
+                host.endsWith('.invalid') || host.endsWith('.example') || host == 'example.com' ||
+                host == 'www.example.com' || candidate.toLowerCase(java.util.Locale.ROOT).contains('[replace') ||
+                candidate.contains('YOUR-'))
+            throw new GradleException('Release blocked: privacy URL must be a real public HTTPS page.')
+        // The NAS Play script additionally FETCHES the page and verifies contact details.
+        // This task intentionally runs without a network request for reproducible CI/offline tests.
+    }
+}
+tasks.configureEach { task ->
+    if (task.name in ['bundleRelease', 'assembleRelease', 'lintRelease',
+            'testReleaseUnitTest', 'packageRelease', 'preReleaseBuild']) task.dependsOn(requireReleasePrivacy)
+}
+
+// Stage-1 instrumentation remains framework-only; production EXIF handling uses AndroidX.
+
+// AndroidX EXIF supports all eight orientations with consistent provider stream parsing.
+dependencies {
+    implementation "androidx.exifinterface:exifinterface:1.4.2"
+    // RestrictTo.Scope metadata referenced by EXIF must also be on javac's classpath.
+    implementation "androidx.annotation:annotation:1.9.1"
+    implementation "org.locationtech.jts:jts-core:1.20.0"
+    testImplementation "junit:junit:4.13.2"
+}
+
+// Keep diagnostics visible; do not hide unchecked conversions or deprecated API use.
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += ['-Xlint:deprecation', '-Xlint:unchecked']
+}

@@ -1,0 +1,49 @@
+{
+  "schema": 25,
+  "widthMm": 152.4,
+  "marginMm": 5,
+  "minimumMm": 0.46,
+  "mode": 0,
+  "pattern": 13,
+  "paper": 4294639606,
+  "newStyleId": 9,
+  "unknownPluginMetadata": {
+    "artist": "fixture",
+    "version": 25
+  },
+  "layers": [
+    {
+      "name": "Yellow",
+      "color": 4294958336,
+      "cmykChannel": 2,
+      "spacing": 2.5,
+      "unknownLayerMetadata": "roundtrip"
+    },
+    {
+      "name": "Cyan",
+      "color": 4278234863,
+      "cmykChannel": 0,
+      "spacing": 2.5,
+      "unknownLayerMetadata": "roundtrip"
+    },
+    {
+      "name": "Magenta",
+      "color": 4293652620,
+      "cmykChannel": 1,
+      "spacing": 2.5,
+      "unknownLayerMetadata": "roundtrip"
+    },
+    {
+      "name": "Black",
+      "color": 4279505940,
+      "cmykChannel": 3,
+      "spacing": 2.5,
+      "unknownLayerMetadata": "roundtrip"
+    }
+  ],
+  "layeredSolidBase": true,
+  "layeredExtraMotif": true,
+  "offsetCellMode": true,
+  "bottleCapMode": true,
+  "fishScaleMode": true
+}

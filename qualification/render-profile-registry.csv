@@ -1,0 +1,120 @@
+style_key,name
+standard:0,Round dots
+standard:1,Square dots
+standard:2,Ellipses
+standard:3,Diamonds
+standard:6,Hexagons
+standard:11,Stars
+standard:10,Crosses
+standard:21,Triangles
+standard:22,Octagons
+standard:23,Rounded squares
+standard:24,Teardrops
+standard:25,Hearts
+standard:26,Capsules
+standard:4,Dashes
+standard:27,ASCII screen
+standard:5,Variable-width lines
+standard:12,Straight lines
+standard:13,Contour lines
+standard:8,Wavy lines
+standard:9,Engraving hatches
+standard:14,Crosshatch
+standard:16,Zigzag lines
+standard:17,Broken lines
+newstyle:0:0,Low-poly Delaunay variant 0
+newstyle:1:0,Stained Glass variant 0
+newstyle:2:0,TSP Single Line variant 0
+newstyle:3:0,Linocut / Woodcut variant 0
+newstyle:4:0,Truchet Tiles variant 0
+newstyle:4:1,Truchet Tiles variant 1
+newstyle:4:2,Truchet Tiles variant 2
+newstyle:4:3,Truchet Tiles variant 3
+newstyle:5:0,Multilayer Text Portrait variant 0
+newstyle:5:1,Multilayer Text Portrait variant 1
+newstyle:5:2,Multilayer Text Portrait variant 2
+newstyle:6:0,Topographic Layers variant 0
+newstyle:9:0,Banknote Engraving variant 0
+newstyle:9:1,Banknote Engraving variant 1
+newstyle:9:2,Banknote Engraving variant 2
+newstyle:9:3,Banknote Engraving variant 3
+newstyle:9:4,Banknote Engraving variant 4
+newstyle:9:5,Banknote Engraving variant 5
+newstyle:9:7,Banknote Engraving variant 7
+newstyle:9:8,Banknote Engraving variant 8
+newstyle:10:0,Square
+newstyle:10:1,Equilateral triangles
+newstyle:10:2,Hexagon honeycomb
+newstyle:10:3,Trihexagonal
+newstyle:10:4,Rhombille diamonds
+newstyle:10:5,Octagon + square
+newstyle:10:6,Pentagonal weave
+newstyle:10:7,Rhombitrihexagonal
+newstyle:10:8,Truncated hexagonal (3.12.12)
+newstyle:10:9,Truncated trihexagonal (4.6.12)
+newstyle:10:10,Snub trihexagonal (3.3.3.3.6)
+newstyle:10:11,Kisrhombille (30-60-90)
+newstyle:10:12,Tetrakis square
+newstyle:10:13,Elongated triangular (3.3.3.4.4)
+newstyle:10:14,Deltoidal trihexagonal
+newstyle:10:15,Triakis triangular
+newstyle:10:16,Floret pentagonal
+newstyle:10:17,Prismatic pentagonal
+newstyle:10:22,Interlocking Basketweave
+newstyle:10:23,Framed Square Lattice
+newstyle:10:25,Triangular Ribbon Weave
+newstyle:10:26,Stepped Cross Interlock
+newstyle:10:28,Isometric Ribbon Cubes
+newstyle:10:29,Crosshair Grid
+newstyle:10:30,Rounded Hexagon Network
+newstyle:10:31,Diagonal Framed Squares
+newstyle:10:34,Nested Hexagon Frames
+newstyle:10:35,Inset Rhombus Cubes
+newstyle:11:0,Organic Marquetry Portrait variant 0
+newstyle:12:0,Fingerprint Portrait variant 0
+newstyle:14:0,Reduction Woodcut variant 0
+newstyle:15:0,Woven Ribbon Portrait variant 0
+newstyle:21:0,Flowing Woodgrain Portrait variant 0
+newstyle:24:0,Torn-Paper Collage variant 0
+newstyle:26:0,Prismatic Diagonal Portrait variant 0
+newstyle:27:0,Mixed Confetti Portrait variant 0
+newstyle:28:0,Chainmail Portrait variant 0
+newstyle:30:0,Round Confetti Portrait variant 0
+newstyle:31:0,Square Confetti Portrait variant 0
+newstyle:32:0,Paper Confetti Portrait variant 0
+newstyle:33:0,Streamer Confetti Portrait variant 0
+newstyle:34:0,Fallen Confetti Portrait variant 0
+newstyle:35:0,Woodland Camo Portrait variant 0
+newstyle:37:0,Fishnet Portrait variant 0
+newstyle:39:0,Crochet Portrait variant 0
+newstyle:40:0,Desert Camo Portrait variant 0
+newstyle:41:0,Urban Camo Portrait variant 0
+newstyle:42:0,Digital Camo Portrait variant 0
+newstyle:43:0,Quilling Ribbons variant 0
+newstyle:44:0,Marbled Ink variant 0
+newstyle:45:0,Quilled Marbling variant 0
+newstyle:47:0,Poster Stencil variant 0
+newstyle:48:0,Prismatic Contour Flow variant 0
+newstyle:49:0,Prismatic Twill variant 0
+newstyle:50:0,Prismatic Silk variant 0
+newstyle:51:0,Prismatic Braided Flow variant 0
+newstyle:52:0,Prismatic Chevron variant 0
+tonal,Tonal Stencil
+mosaic:0,Voronoi Mosaic
+mosaic:1,Grid Mosaic
+mosaic:2,Weighted Stipple
+cell:layered,Cell layered
+cell:offset,Cell offset
+cell:cap,Cell cap
+cell:scale,Cell scale
+cell:overprint-1,Cell overprint-1
+cell:overprint-2,Cell overprint-2
+cell:overprint-3,Cell overprint-3
+cell:overprint-4,Cell overprint-4
+single:SPIRAL,SPIRAL
+single:ADAPTIVE_HILBERT,ADAPTIVE_HILBERT
+single:GOSPER,GOSPER
+single:PEANO,PEANO
+single:WUNDERLICH,WUNDERLICH
+single:MOORE,MOORE
+single:COIL,COIL

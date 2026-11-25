@@ -1,0 +1,7 @@
+check,expected_mm,observed_mm,cutter_software,device,notes
+svg_reference_square,25.4,,,,
+svg_horizontal_registration,263.4,,,,
+svg_vertical_registration,187.2,,,,
+dxf_reference_square,25.4,,,,
+dxf_horizontal_registration,263.4,,,,
+dxf_vertical_registration,187.2,,,,
