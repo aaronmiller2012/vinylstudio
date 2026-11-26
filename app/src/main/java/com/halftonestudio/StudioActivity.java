@@ -1271,6 +1271,8 @@ public class StudioActivity extends Activity {
     private volatile Bitmap tonalPreview;
     @Override public void onCreate(Bundle state){super.onCreate(state);
         VectorBooleanEngine.install(new JtsVectorBooleanBackend());
+        android.app.ActivityManager memoryManager=(android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE);
+        ParallelGeometry.configureMemoryBudget(memoryManager!=null&&memoryManager.isLowRamDevice(),Runtime.getRuntime().maxMemory());
         if(state!=null)pendingLibraryExport.restore(state.getString(STATE_PENDING_LIBRARY_EXPORT));
         if(state!=null&&state.getString(STATE_PENDING_CAMERA)!=null)pendingCameraCapture=Uri.parse(state.getString(STATE_PENDING_CAMERA));
         // The system bars are transparent and mandatory edge-to-edge on Android 15+.
@@ -3603,7 +3605,7 @@ public class StudioActivity extends Activity {
             this.category=category;this.name=name;this.description=description;this.previewKind=previewKind;
             this.selected=selected;this.activate=activate;
         }
-        String searchKey(){return category+" "+name+" "+description+" "+previewKind+" "+StyleDiscovery.aliases(previewKind);}
+        String searchKey(){return category+" "+StylePickerFamilies.family(previewKind)+" "+name+" "+description+" "+previewKind+" "+StyleDiscovery.aliases(previewKind);}
     }
     private void addPickerChoice(ArrayList<PickerChoice> out,String group,String label,String summary,
                                  String thumbnail,boolean selected,Runnable activate){
@@ -3854,7 +3856,7 @@ public class StudioActivity extends Activity {
         for(PickerChoice choice:choices){
             if(category.equals("Favorites")){if(!favorites.contains(choice.previewKind))continue;}
             else if(category.equals("Recent")){if(!recent.contains(choice.previewKind))continue;}
-            else if(!category.equals("All")&&!choice.category.equals(category))continue;
+            else if(!StylePickerFamilies.matches(category,choice.category,choice.previewKind))continue;
             if(!StyleDiscovery.matches(choice.searchKey(),query))continue;
             matches.add(choice);
         }
@@ -3909,7 +3911,7 @@ public class StudioActivity extends Activity {
         LinearLayout grid=new LinearLayout(this);grid.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(grid,new ScrollView.LayoutParams(-1,-2));
         root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1f));
-        final String[] groups={"All","Favorites","Recent","Multilayer","Tessellation","Geometric styles","Lines","Single Line","Art techniques"};
+        final String[] groups=StylePickerFamilies.tabs();
         final Runnable[] repaint={null};
         repaint[0]=()->{
             chips.removeAllViews();
@@ -4747,23 +4749,26 @@ public class StudioActivity extends Activity {
             });}
         });
     }
+    private long layeredPhotoPaletteRequest=0L;
     private void suggestLayeredPhotoColors(){
         if(!layeredCellMode||photo==null)return;
         final Bitmap source=photo;
         final long sourceRevision=photoRevision;
+        final long paletteRequest=++layeredPhotoPaletteRequest;
         final int layerCount=tessLayerCount;
         final boolean overprint=overprintCellKind>0;
         final int renderKey=alternateGeneration;
         final SnipMask snips=settings.snips==null?null:settings.snips.copy();
         final boolean circle=settings.circleCrop;
         final int fill=settings.snipFillMode;
-        diagnosticsExecutor.execute(()->{
+        try{diagnosticsExecutor.execute(()->{
+            Bitmap scaled=null,thumbnail=null;
             try{
                 int largest=Math.max(source.getWidth(),source.getHeight());
                 float scale=Math.min(1f,384f/largest);
-                Bitmap thumbnail=scale==1?source:Bitmap.createScaledBitmap(source,
+                scaled=scale==1?source:Bitmap.createScaledBitmap(source,
                     Math.max(12,Math.round(source.getWidth()*scale)),Math.max(12,Math.round(source.getHeight()*scale)),true);
-                if(fill==0)thumbnail=SpecialtyCutSafety.prepare(thumbnail,snips,circle);
+                thumbnail=fill==0?SpecialtyCutSafety.prepare(scaled,snips,circle):scaled;
                 int w=thumbnail.getWidth(),h=thumbnail.getHeight();
                 int[] pixels=new int[w*h];thumbnail.getPixels(pixels,0,w,0,0,w,h);
                 boolean[] valid=new boolean[pixels.length];
@@ -4771,8 +4776,11 @@ public class StudioActivity extends Activity {
                 int[] colors=PhotoPaletteOptimizer.optimize(pixels,valid,
                     overprint?8:layerCount).colors; // M4/D12
                 postUi(()->{
-                    if(photo!=source||!layeredCellMode||layerCount!=tessLayerCount||
-                       overprint!=(overprintCellKind>0)||renderKey!=alternateGeneration)return;
+                    if(isFinishing()||isDestroyed()||photo!=source||sourceRevision!=photoRevision||
+                       paletteRequest!=layeredPhotoPaletteRequest||!layeredCellMode)return;
+                    if(layerCount!=tessLayerCount||overprint!=(overprintCellKind>0)||renderKey!=alternateGeneration){
+                        toast(getString(R.string.photo_suggestion_skipped));return;
+                    }
                     checkpoint();int[] candidate=tessColors.clone();
                     for(int i=0;i<(overprint?8:layerCount);i++)candidate[i]=colors[i];
                     if(overprint)candidate=OpaqueOverlayPhotoPalette.arrange(candidate,layerCount,pixels);
@@ -4783,10 +4791,17 @@ public class StudioActivity extends Activity {
                     setTool(2);requestAlternate();
                     toast(getString(R.string.ui_photo_colors_suggested_match_swatches_to));
                 });
-            }catch(Exception e){postUi(()->{
-                if(photo==source&&layeredCellMode)toast("Photo colors: "+friendlyFailure(e,"Unable to update photo colors"));
-            });}
-        });
+            }catch(OutOfMemoryError oom){postUi(()->{
+                if(!isFinishing()&&!isDestroyed()&&photo==source&&sourceRevision==photoRevision&&
+                    paletteRequest==layeredPhotoPaletteRequest&&layeredCellMode)toast(getString(R.string.photo_suggestion_memory));
+            });}catch(Exception e){postUi(()->{
+                if(!isFinishing()&&!isDestroyed()&&photo==source&&sourceRevision==photoRevision&&
+                    paletteRequest==layeredPhotoPaletteRequest&&layeredCellMode)toast("Photo colors: "+friendlyFailure(e,"Unable to update photo colors"));
+            });}finally{
+                if(thumbnail!=null&&thumbnail!=scaled&&thumbnail!=source&&!thumbnail.isRecycled())thumbnail.recycle();
+                if(scaled!=null&&scaled!=source&&!scaled.isRecycled())scaled.recycle();
+            }
+        });}catch(java.util.concurrent.RejectedExecutionException busy){toast(getString(R.string.photo_suggestion_busy));}
     }
     private String layeredFamilyName(int f){
         String[] names={"Photo adaptive / Mixed","Ellipse","Rounded square","Diamond","Hexagon","Octagon","Capsule / Edge","Soft star","Scallop"};

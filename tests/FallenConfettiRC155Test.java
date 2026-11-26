@@ -53,7 +53,16 @@ public final class FallenConfettiRC155Test {
         int max=0;
         for(int n:hist)max=Math.max(max,n);
         check(max<scatter.pieces.size()*.18f,"regular placement grid still detectable");
-        check(uniqueX.size()>scatter.pieces.size()*.65f,"many repeated grid x coordinates");
+        // At higher particle counts random positions legitimately collide after
+        // quantization. Keep the original threshold on the old scatter, and
+        // compare adaptive scatter to the occupancy expected for random bins.
+        FallenConfettiEngine.Plan legacy=FallenConfettiEngine.sample(source,opt,manual,0f);
+        HashSet<Integer> oldX=new HashSet<>();
+        for(FallenConfettiEngine.Piece p:legacy.pieces)oldX.add(Math.round(p.x*20f));
+        check(oldX.size()>legacy.pieces.size()*.65f,"legacy scatter grid regression");
+        int bins=Math.max(1,java.util.Collections.max(uniqueX)-java.util.Collections.min(uniqueX)+1);
+        double expected=bins*(-Math.expm1(scatter.pieces.size()*Math.log1p(-1d/bins)));
+        check(uniqueX.size()>.90*expected,"adaptive scatter repeats more x coordinates than random occupancy predicts");
         PatternPortraitTrioEngine.Surface surface=new PatternPortraitTrioEngine.Surface(source,opt.layers,opt.minCutMm);
         int pieces=FallenConfettiEngine.render(surface,opt,manual);
         check(pieces==scatter.pieces.size(),"non-deterministic scatter");

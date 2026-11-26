@@ -52,10 +52,10 @@ final class CutGeometryConditioner {
         // Grid aligned to the cut minimum: a 7-pixel disk is exactly the
         // minimum (+0.02 mm), so morphology neither keeps sub-minimum vinyl
         // nor erodes features that already meet the limit.
-        double px=Math.max(.05,Math.min((minMm+.02)/7.0,(gapMm+.02)/3.0));
-        px=Math.max(px,Math.sqrt((double)spanX*spanY/MAX_PIXELS));
-        final int w=(int)Math.ceil(spanX/px)+2,h=(int)Math.ceil(spanY/px)+2; // one-pixel waste border
-        final float p=(float)px;
+        final CutRepairGrid grid=CutRepairGrid.plan(spanX,spanY,minMm,gapMm,MAX_PIXELS);
+        if(grid==null)throw new BudgetExceededException("Physical repair grid exceeds bounded resolution; retain original for cut review");
+        final int w=grid.width,h=grid.height;
+        final float p=grid.pitch;
         ArrayList<float[]> local=new ArrayList<>(loops.size());
         for(float[] loop:loops){
             float[] q=loop.clone();
@@ -64,11 +64,10 @@ final class CutGeometryConditioner {
         }
         boolean[] vinyl=rasterize(local,w,h,p);
         StyleKit.checkCancelled();
-        // Radii in pixels: a disk of radius r covers 2*floor(r)+1 pixel centres.
-        // Morphology never exceeds the physical limits: anything that already
-        // meets them survives. Residual sub-limit spots (grid rounding, contour
-        // smoothing) are handled by the inspector-guided repair below.
-        int rv=radius(minMm+.02f,p), rg=radius(gapMm+.02f,p);
+        // Use a conservative integer footprint. Rounding up can turn a legal
+        // minimum-width stroke into a missing stroke, especially near a seven-pixel
+        // grid boundary. The final inspector, not morphology, decides residual safety.
+        int rv=CutRepairGrid.openingRadius(minMm,p), rg=CutRepairGrid.openingRadius(gapMm,p);
         vinyl=open(vinyl,w,h,rv);
         StyleKit.checkCancelled();
         // Narrow waste that SEPARATES two pieces is widened to a full weed
@@ -309,10 +308,6 @@ final class CutGeometryConditioner {
      * single-pixel tips at the four compass points (a plain r*r disk does,
      * and those tips survive as spurs that close weed gaps). */
     private static float disk(int r){return r*(float)r+r+.01f;}
-    private static int radius(float diameterMm,float px){
-        // Smallest integer r with (2r+1) pixels >= requested diameter.
-        return Math.max(1,(int)Math.ceil((diameterMm/px-1f)/2f));
-    }
     /** Even-odd scanline fill sampled at pixel centres; pixel (i,j) centre is ((i-1+.5)p,(j-1+.5)p). */
     static boolean[] rasterize(List<float[]> loops,int w,int h,float p){
         boolean[] m=new boolean[w*h];

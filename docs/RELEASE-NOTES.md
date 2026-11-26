@@ -2,6 +2,18 @@
 
 Detailed per-build notes, newest first. Some referenced internal reports are not part of the public repository.
 
+## M6 consolidated qualification candidate — versionCode 565 (3.5.4)
+
+Warning-centred local Confetti repair, lower-allocation clearance inspection, bounded Prismatic sheet scheduling, exact strand optimization. See `docs/engineering/M6-565-completion.md`. Full production and device qualification pending.
+
+## M6 Confetti detail candidate — versionCode 563 (3.5.2)
+
+Adaptive scattered fragments for all six Confetti styles; coarse detail remains unchanged. New host comparative and vector export/review gates. **Not physical cut-qualified.** See `docs/engineering/M6-563-confetti.md`.
+
+## M6 reliability candidate — versionCode 562 (3.5.1)
+
+Bounded physical repair grid, cut-share warning preservation, low-heap sequential geometry, photo-suggestion lifecycle handling, and cross-pipeline NAS preflight checks. Android build and physical qualification remain required. See `docs/engineering/M6-562.md`.
+
 ## M5 completion candidate — versionCode 561 (3.5.0)
 
 The M5 artwork engines are finished on the host: Linocut prints like a relief block (solid shadows with carved gouges), Crochet is a cut-clean filet grid, Banknote Engraving keeps its tone at the 0.8 mm minimum, Confetti chooses its solid base to match the photo, and Prismatic Diagonal gains the size-aware pitch of its siblings. Registration marks can go above and below the artwork, so 11 in landscape art fits a 12 × 12 mat. Prismatic renders use about a third less memory, and geometry no longer depends on device speed.

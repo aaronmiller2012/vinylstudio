@@ -200,6 +200,41 @@ final class JtsVectorBooleanBackend implements VectorBooleanEngine.Backend {
         if(!out.isValid())out=polygonal(GeometryFixer.fix(out));
         return polygonal(out);
     }
+    /** Only the warning-centred core is replaced. Halo supplies the neighbouring
+     * geometry needed by buffering; the final intersection protects Snip holes.
+     * A single batch of masks avoids buffering the entire large sheet per defect. */
+    @Override public ArrayList<float[]> localizedCondition(Object shape,Object clip,java.util.List<float[]> raw,
+            java.util.List<float[]> windows,float closeR,float openR,float tolerance){
+        if(windows.isEmpty())return null;
+        Geometry source=(Geometry)shape,snip=(Geometry)clip;
+        // Closing/opening plus up to three carving iterations can propagate beyond
+        // one radius. Use a conservative halo; the full-sheet inspector remains authoritative.
+        double halo=8.0*(closeR+openR)+.1;
+        ArrayList<Geometry> cores=new ArrayList<>(),halos=new ArrayList<>();
+        for(float[] r:windows){
+            CancellationCheckpoint.check();
+            org.locationtech.jts.geom.Envelope core=new org.locationtech.jts.geom.Envelope(r[0],r[2],r[1],r[3]);
+            org.locationtech.jts.geom.Envelope expanded=new org.locationtech.jts.geom.Envelope(core);expanded.expandBy(halo);
+            cores.add(FACTORY.toGeometry(core));halos.add(FACTORY.toGeometry(expanded));
+        }
+        Geometry core=polygonal(UnaryUnionNG.union(cores,FACTORY,PM));
+        Geometry region=polygonal(UnaryUnionNG.union(halos,FACTORY,PM));
+        if(region.getArea()>.30*snip.getEnvelopeInternal().getArea())return null;
+        Geometry local=intersectGeometry(source,region);
+        if(local.isEmpty()||local.getNumPoints()>60000)return null;
+        Geometry localClip=intersectGeometry(snip,region);
+        Geometry fixed=condition(local,localClip,closeR,openR,Math.max(tolerance,.018f));
+        CancellationCheckpoint.check();
+        Geometry patch=intersectGeometry(fixed,core);
+        Geometry outside=overlay(source,core,OverlayNG.DIFFERENCE);
+        Geometry combined=outside.isEmpty()?patch:patch.isEmpty()?outside:overlay(outside,patch,OverlayNG.UNION);
+        combined=intersectGeometry(combined,snip);
+        if(!combined.isValid())return null;
+        return contours(combined);
+    }
+    private static Geometry intersectGeometry(Geometry a,Geometry b){
+        return a.isEmpty()||b.isEmpty()?EMPTY:overlay(a,b,OverlayNG.INTERSECTION);
+    }
     /** Re-opens only the pieces the carve touched. Opening is idempotent and acts on each
      *  disjoint piece separately, so pieces the carve cannot have reached are already open;
      *  re-buffering the whole sheet repeated two full-sheet buffers for a few local changes. */
@@ -278,8 +313,12 @@ final class JtsVectorBooleanBackend implements VectorBooleanEngine.Backend {
         return result;
     }
     private static float[] loop(LinearRing ring){
-        Coordinate[] c=ring.getCoordinates();float[] p=new float[(c.length-1)*2];
-        for(int i=0;i<c.length-1;i++){p[2*i]=(float)c[i].x;p[2*i+1]=(float)c[i].y;}return p;
+        org.locationtech.jts.geom.CoordinateSequence c=ring.getCoordinateSequence();
+        float[] p=new float[(c.size()-1)*2];
+        for(int i=0;i<c.size()-1;i++){
+            if((i&1023)==0)CancellationCheckpoint.check();
+            p[2*i]=(float)c.getX(i);p[2*i+1]=(float)c.getY(i);
+        }return p;
     }
     private static Geometry append(Geometry a,Geometry b){
         ArrayList<Polygon> polys=new ArrayList<>();collect(a,polys);collect(b,polys);return build(polys);

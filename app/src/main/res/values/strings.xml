@@ -135,6 +135,13 @@ The public privacy policy contains contact details and the complete data-handlin
     <string name="editor_subtitle_unsaved">%1$s •</string>
     <string name="zoom_percent">%1$d%%</string>
     <string name="color_value_brightness_label">Value / Brightness · %1$d%%</string>
+    <string name="photo_suggestion_skipped">Artwork changed while photo colors were being analyzed. Request photo colors again.</string>
+    <string name="photo_suggestion_memory">Not enough memory to suggest photo colors. Your existing colors were kept.</string>
+    <string name="photo_suggestion_busy">Photo color analysis is busy. Try again.</string>
+    <string name="share_review_only_title">Review only — not cut-qualified</string>
+    <string name="share_review_only_message">This export contains unresolved cut-safety findings. Direct cutter sharing is unavailable. Share the original ZIP for inspection; it includes the warning, geometry reports and sheets. Do not cut until independently verified.</string>
+    <string name="action_share_review_zip">Share review ZIP</string>
+    <string name="share_review_zip_unavailable">No app can receive this review ZIP.</string>
     <string name="share_cut_sheets_title">Send to your cutter app?</string>
     <string name="share_cut_sheets_message">Your ZIP is saved. You can also send its cut sheets (%1$d) directly to Cricut Design Space, Silhouette Studio or another app. Import them at 100%% scale.</string>
     <string name="action_done">Done</string>

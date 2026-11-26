@@ -34,7 +34,19 @@ final class ParallelGeometry {
     static boolean cancelled(){AtomicBoolean t=TOKEN.get();return t!=null&&t.get();}
     /** Test hook: force the sequential path to prove both produce identical geometry. */
     static volatile boolean forceSequential=false;
-    static boolean enabled(){return PARALLELISM>1&&!forceSequential;}
+    private static volatile boolean memoryConstrained=false;
+    static void configureMemoryBudget(boolean lowRam,long maxHeapBytes){
+        memoryConstrained=lowRam||maxHeapBytes<=512L*1024*1024;
+    }
+    static boolean enabled(){return PARALLELISM>1&&!forceSequential&&!memoryConstrained;}
+
+    /** Bound independent sheet buffering on typical phone heaps. Preserve the
+     * existing union-tree operation order; only sheet scheduling changes. */
+    static boolean allowConcurrentSheets(int inputPoints,float widthMm,long heapBytes){
+        if(heapBytes<=768L*1024*1024 && (widthMm>=203.2f||inputPoints>=60000))return false;
+        if(heapBytes<=1536L*1024*1024 && inputPoints>=160000)return false;
+        return true;
+    }
 
     /** A task whose body observes the invocation's cancellation token. */
     abstract static class Task<T> extends RecursiveTask<T> {

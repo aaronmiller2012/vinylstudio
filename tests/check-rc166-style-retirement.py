@@ -17,16 +17,19 @@ assert 'if(!TessellationMotifEngine.selectablePattern(pattern))return;' in ui
 assert 'newStyleVariant=NewStyleVariantPolicy.restore(newStyleId,savedVariant);' in ui
 assert 'Retired tessellation changed to Trihexagonal' in ui
 reg=(s/'StudioThumbnailRegistry.java').read_text()
-# RC166's original 71 top-level thumbnails predate the later V3 additions.
-# Retain an exact count for V3 and verify actual declarations, not just a number.
-expected=76 if info['versionName'].startswith('3.') else 71
-assert f'TOP_LEVEL_COUNT = {expected}, TESSELLATION_COUNT = 28;' in reg
+# Registry size is derived from its declarations, while the stable 561 inventory
+# is pinned independently. New styles may append; existing identities cannot vanish.
+count=re.search(r'TOP_LEVEL_COUNT\s*=\s*(\d+),\s*TESSELLATION_COUNT\s*=\s*28;',reg)
+assert count, 'Missing registry count or tessellation baseline'
 keys=[]
 for family in ('MULTILAYER','SHAPES','LINES','SINGLE','ART'):
     match=re.search(r'String\[\] '+family+r'\s*=\s*\{(.*?)\};',reg,re.S)
     assert match, 'Missing thumbnail family '+family
     keys.extend(re.findall(r'"([^"]+)"',match.group(1)))
-assert len(keys)==expected and len(set(keys))==expected, 'Missing or duplicate thumbnail keys'
+assert len(keys)==int(count.group(1)) and len(keys)==len(set(keys)), 'Incorrect registry count or duplicate thumbnail keys'
+baseline=(p/'tests/thumbnail-identities-561.txt').read_text().splitlines()
+assert len(baseline)==81 and len(set(baseline))==81, 'Baseline inventory corrupted'
+assert set(baseline)<=set(keys), 'Existing thumbnail identities missing: '+str(sorted(set(baseline)-set(keys)))
 assert 'multilayer.leaf_vein' not in reg and 'multilayer.lace' not in reg
 assert info['gate'] in (p/'BUILD_ON_NAS.sh').read_text()
 assert info['gate'] in (p/'.github/workflows/verify.yml').read_text()

@@ -528,7 +528,9 @@ public final class VinylStyleSuite {
             splitAroundFindings(layer.loops,found,2f*Math.max(minimumMm,gapMm),keep,repair);
             ArrayList<float[]> fixedPart;
             try{fixedPart=CutGeometryConditioner.condition(repair,result.widthMm,result.heightMm,minimumMm,gapMm);}
-            catch(CutGeometryConditioner.BudgetExceededException budget){return;}
+            catch(CutGeometryConditioner.BudgetExceededException budget){
+                repairBySeparatedGroups(result,layer,minimumMm,gapMm);return;
+            }
             if(!preservesArtwork(repair,fixedPart))return; // keep original; export review reports it
             ArrayList<float[]> merged=new ArrayList<>(keep);
             merged.addAll(fixedPart);
@@ -539,9 +541,35 @@ public final class VinylStyleSuite {
         }
         ArrayList<float[]> repaired;
         try{repaired=CutGeometryConditioner.condition(layer.loops,result.widthMm,result.heightMm,minimumMm,gapMm);}
-        catch(CutGeometryConditioner.BudgetExceededException budget){return;}
+        catch(CutGeometryConditioner.BudgetExceededException budget){
+            repairBySeparatedGroups(result,layer,minimumMm,gapMm);return;
+        }
         if(!preservesArtwork(layer.loops,repaired))return; // keep original; export review reports it
         layer.loops.clear();layer.loops.addAll(repaired);
+    }
+    /** A global repair grid can be too large even when the actual defects are small and far apart.
+     * Preserve every independent clean group byte-for-byte; repair only defective groups, then
+     * inspect the whole merged candidate. Nested and nearby contours always stay together.
+     * No partial mutation or coarsening when a group cannot be repaired within the budget. */
+    private static void repairBySeparatedGroups(StyleKit.Result result,StyleKit.Layer layer,float minimumMm,float gapMm){
+        List<List<float[]>> groups=CutRepairPartitions.group(layer.loops,2f*Math.max(minimumMm,gapMm));
+        if(groups.size()<2||groups.size()>64)return;
+        ArrayList<float[]> merged=new ArrayList<>(layer.loops.size());
+        int repairedGroups=0;
+        try{
+            for(List<float[]> group:groups){
+                StyleKit.checkCancelled();
+                List<StyleCutGeometryPreflight.Warning> findings=inspectLayer(result,group,minimumMm,gapMm,5000);
+                if(findings.isEmpty()){merged.addAll(group);continue;}
+                if(incomplete(findings)||++repairedGroups>8)return;
+                ArrayList<float[]> fixed=CutGeometryConditioner.condition(group,result.widthMm,result.heightMm,minimumMm,gapMm);
+                if(!preservesArtwork(group,fixed))return;
+                merged.addAll(fixed);
+            }
+            if(repairedGroups==0||!preservesArtwork(layer.loops,merged)||
+                !inspectLayer(result,merged,minimumMm,gapMm,1).isEmpty())return;
+        }catch(CutGeometryConditioner.BudgetExceededException|IllegalArgumentException cannotRepair){return;}
+        layer.loops.clear();layer.loops.addAll(merged);
     }
     /** Conditioning repairs local defects. If it would erase a quarter of the
      * vinyl, the style itself is too fine for the chosen cut settings; keep

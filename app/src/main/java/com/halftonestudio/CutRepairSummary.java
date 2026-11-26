@@ -57,6 +57,14 @@ final class CutRepairSummary {
     String shortSentence(float minimumMm,float gapMm){
         if(!any())return complete()?"":"Cut-ready · some dense sheets were not counted for repairs. Tap for Cut Check.";
         StringBuilder s=new StringBuilder("Cut-ready · cut prep ");
+        // When both counts are present, keep both in the compact status. The full
+        // physical limits are already in sentence() and the detailed Cut Check.
+        if(totalHoles>0&&totalPieces>0){
+            s.append("filled ").append(totalHoles).append(totalHoles==1?" hole":" holes")
+                .append(", removed ").append(totalPieces).append(totalPieces==1?" piece":" pieces")
+                .append(". Cut Check; test-cut first.");
+            return s.toString();
+        }
         // Holes are filled because of the weed gap, pieces removed because of the minimum width.
         if(totalHoles>0)s.append("filled ").append(totalHoles).append(totalHoles==1?" hole":" holes")
             .append(String.format(Locale.US," (%.2f mm gap)",gapMm));

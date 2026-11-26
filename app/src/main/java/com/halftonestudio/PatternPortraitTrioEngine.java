@@ -40,12 +40,15 @@ public final class PatternPortraitTrioEngine {
         final boolean[] valid;
         final boolean[][] ink;
         private final VectorBooleanEngine.Session vector;
+        private boolean conditionConfetti;
+        private final float minCut,gap;
         boolean vectorEnabled(){return vector!=null;}
         boolean vectorSlot(int slot){return vector!=null&&slot>0;}
         float vectorTolerance(){return vector.tolerance;}
         Surface(StyleKit.Source s,int slots,float minCut) {this(s,slots,minCut,false);}
         Surface(StyleKit.Source s,int slots,float minCut,boolean draft) {this(s,slots,minCut,minCut,draft,false);}
         Surface(StyleKit.Source s,int slots,float minCut,float gap,boolean draft,boolean useVector) {
+            this.minCut=minCut;this.gap=gap;
             vector=!draft&&useVector?VectorBooleanEngine.begin(slots,minCut,gap):null;
             src=s;
             // Physical feature floor scales with output size. Avoid enormous masks.
@@ -135,11 +138,14 @@ public final class PatternPortraitTrioEngine {
                 if(inside)ink[slot][idx]=true;
             }
         }
+        private ArrayList<float[]> finishSheet(int slot){
+            return conditionConfetti?vector.finishConfetti(slot,src.widthMm,src.heightMm,minCut,gap):vector.finish(slot,src.widthMm,src.heightMm);
+        }
         /** Independent physical sheets share only the immutable clip; union them concurrently. */
         private void finishVectorSheets(java.util.List<Integer> slots,java.util.List<StyleKit.Layer> layers){
             if(slots.isEmpty())return;
-            if(slots.size()==1||!ParallelGeometry.enabled()){
-                for(int i=0;i<slots.size();i++)layers.get(i).loops.addAll(vector.finish(slots.get(i),src.widthMm,src.heightMm));
+            if(conditionConfetti||slots.size()==1||!ParallelGeometry.enabled()){
+                for(int i=0;i<slots.size();i++)layers.get(i).loops.addAll(finishSheet(slots.get(i)));
                 return;
             }
             final java.util.concurrent.atomic.AtomicBoolean token=ParallelGeometry.token();
@@ -147,7 +153,7 @@ public final class PatternPortraitTrioEngine {
                 @Override Void work(){
                     java.util.ArrayList<ParallelGeometry.Task<java.util.ArrayList<float[]>>> sheets=new java.util.ArrayList<>();
                     for(final int slot:slots)sheets.add(new ParallelGeometry.Task<java.util.ArrayList<float[]>>(token){
-                        @Override java.util.ArrayList<float[]> work(){return vector.finish(slot,src.widthMm,src.heightMm);}
+                        @Override java.util.ArrayList<float[]> work(){return finishSheet(slot);}
                     });
                     invokeAll(sheets);
                     for(int i=0;i<sheets.size();i++)layers.get(i).loops.addAll(sheets.get(i).join());
@@ -244,6 +250,9 @@ public final class PatternPortraitTrioEngine {
         }
     }
     public static StyleKit.Result generate(int[] pixels,int width,int height,Options o){
+        return generate(pixels,width,height,o,true);
+    }
+    static StyleKit.Result generate(int[] pixels,int width,int height,Options o,boolean repairConfetti){
         if(o==null)throw new IllegalArgumentException("Options required");o.validate();
         StyleKit.Source source=new StyleKit.Source(pixels,width,height,o.allowed,o.widthMm).autoLevels(.02f,.98f);
         if(!source.anyValid())throw new IllegalArgumentException("No valid subject pixels");
@@ -254,6 +263,7 @@ public final class PatternPortraitTrioEngine {
         // A manually edited palette is a physical vinyl stack: never reorder it.
         // Only auto-generated palettes are sorted into base -> upper light tones.
         Surface surface=new Surface(source,slots,o.minCutMm,o.gapMm,o.draft,o.kind!=SPIDER_WEB);
+        surface.conditionConfetti=repairConfetti&&o.kind==CONFETTI&&o.detail>25;
         int n=o.kind==CONFETTI?FallenConfettiEngine.render(surface,o,colors):o.kind==CHAINMAIL?
             InterlockingChainmailEngine.render(surface,o,colors):spiderWeb(surface,o);
         StyleKit.Result result=surface.finish(colors,

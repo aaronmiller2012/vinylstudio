@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
+# Report the command and actual status even when an inherited gate fails silently.
+trap 'rc=$?; printf "[NAS] command failed (exit %s) at line %s: %s\n" "$rc" "$LINENO" "$BASH_COMMAND" >&2; exit "$rc"' ERR
 cd "$(dirname "$0")"
 
 printf '\n===== MANDATORY V3 OPAQUE OVERLAY PALETTE + INHERITED QA GATES =====\n'
@@ -10,14 +12,7 @@ case "${VINYL_QUALIFY_RELEASE:-0}" in 0|1) ;; *) echo 'VINYL_QUALIFY_RELEASE mus
 [[ -d "${ANDROID_HOME:-$HOME/Android/Sdk}" ]] || {
   echo 'Android SDK directory missing; set ANDROID_HOME before starting tests or transfer' >&2;exit 3;
 }
-python3 tests/check-rc173-wrapper-bootstrap.py
-# Fast source integration checks before expensive Gradle/JVM work.
-python3 tests/check-v3-release-consistency.py
-python3 tests/check-rc173-play-readiness.py
-python3 tests/check-rc166-style-retirement.py
-python3 tests/check-rc173-w5-integration.py
-python3 tests/check-v3-integration.py
-python3 tests/check-v3-beta3-integration.py
+bash tests/run-nas-source-preflight.sh
 # Compile Android code early so UI mistakes fail before CPU-heavy golden tests.
 # SDK installation and final APK compilation remain below for fresh NAS setup.
 EARLY_SDK="${ANDROID_HOME:-$HOME/Android/Sdk}"
@@ -115,6 +110,10 @@ bash tests/run-v3-prepared-export-gate.sh
 bash tests/run-v3-beta25-snip-mat-gate.sh
 bash tests/run-v3-release-hardening-gate.sh
 # >>> synced from tests/gates.manifest by scripts/sync-gates.py (do not edit by hand)
+bash tests/run-v3-m6-completion-gate.sh
+bash tests/run-v3-m6-refinement-gate.sh
+bash tests/run-v3-m6-confetti-gate.sh
+bash tests/run-v3-m6-reliability-gate.sh
 bash tests/run-v3-m5-release-gate.sh
 bash tests/run-v3-prismatic-ribbon-gate.sh
 bash tests/run-v3-m5-export-mat-gate.sh
@@ -215,8 +214,8 @@ case "${VINYL_QUALIFY_RELEASE:-0}" in
      }
      # Map must be retained with the exact R8 release build that produced it.
      mkdir -p release-artifacts
-     cp -- app/build/outputs/mapping/release/mapping.txt release-artifacts/V3-code561-mapping.txt
-     sha256sum release-artifacts/V3-code561-mapping.txt > release-artifacts/V3-code561-mapping.sha256
+     cp -- app/build/outputs/mapping/release/mapping.txt release-artifacts/V3-code565-mapping.txt
+     sha256sum release-artifacts/V3-code565-mapping.txt > release-artifacts/V3-code565-mapping.sha256
      printf 'RELEASE QUALIFICATION COMPILED; actual device checks remain required.\n'
      ;;
   *) echo 'Invalid VINYL_QUALIFY_RELEASE. Set 0 (development) or 1 (release qualification).' >&2
@@ -224,7 +223,7 @@ case "${VINYL_QUALIFY_RELEASE:-0}" in
 esac
 APK=app/build/outputs/apk/debug/app-debug.apk
 [[ -s "$APK" ]] || { echo "APK build output missing" >&2; exit 5; }
-DEST="${VINYL_APK_OUTPUT:-$HOME/Downloads/VinylHalftoneStudio-v3.5.0-Product561.apk}"
+DEST="${VINYL_APK_OUTPUT:-$HOME/Downloads/VinylHalftoneStudio-v3.5.4-Product565.apk}"
 # Do not clobber the previous working artifact on a short or interrupted copy.
 mkdir -p -- "$(dirname "$DEST")"
 STAGED_APK="$(mktemp "$(dirname "$DEST")/.VinylStudio-V3-apk.XXXXXXXX")"

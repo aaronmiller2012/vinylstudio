@@ -3,7 +3,7 @@
 # source, instead of freezing metadata from the previous beta. No SSH here.
 set -Eeuo pipefail
 BASE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-ARCHIVE='VinylStudio-V3-Product561-source.zip'
+ARCHIVE='VinylStudio-V3-Product565-source.zip'
 for file in "$ARCHIVE" SOURCE_SHA256.txt PHONE_COMMON.sh PHONE_BUILD_AND_RECEIVE.sh PHONE_RECEIVE_ONLY.sh NAS_STAGE_BUILD.sh; do
     [[ -s "$BASE/$file" ]] || { echo "Missing TransferKit file: $file" >&2; exit 14; }
 done

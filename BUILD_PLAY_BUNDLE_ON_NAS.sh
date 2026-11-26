@@ -64,6 +64,10 @@ bash tests/run-v3-milestone-a1-gate.sh
 bash tests/run-v3-milestone-a2-gate.sh
 bash tests/run-v3-milestone-a3-b1-gate.sh
 # >>> synced from tests/gates.manifest by scripts/sync-gates.py (do not edit by hand)
+bash tests/run-v3-m6-completion-gate.sh
+bash tests/run-v3-m6-refinement-gate.sh
+bash tests/run-v3-m6-confetti-gate.sh
+bash tests/run-v3-m6-reliability-gate.sh
 bash tests/run-v3-m5-release-gate.sh
 bash tests/run-v3-prismatic-ribbon-gate.sh
 bash tests/run-v3-m5-export-mat-gate.sh
@@ -147,7 +151,7 @@ if grep -Eq '^base/lib/[^/]+/[^/]+\.so$' <<< "$BUNDLE_ENTRIES"; then
   [[ -n "${BUNDLETOOL_JAR:-}" ]] || fail 'Native libraries present; run bundletool and verify 16 KB page compatibility before publishing'
   echo 'WARNING: Bundle contains native libraries; 16 KB ELF segment alignment still needs independent verification.' >&2
 fi
-DEST="${VINYL_PLAY_AAB_OUTPUT:-$HOME/Downloads/VinylStudio-v3.5.0-Play561.aab}"
+DEST="${VINYL_PLAY_AAB_OUTPUT:-$HOME/Downloads/VinylStudio-v3.5.4-Play565.aab}"
 MAP_DEST="${DEST%.aab}-mapping.txt"
 mkdir -p -- "$(dirname -- "$DEST")"
 STAGED="$(mktemp "$(dirname -- "$DEST")/.vinyl-play-aab.XXXXXXXX")"

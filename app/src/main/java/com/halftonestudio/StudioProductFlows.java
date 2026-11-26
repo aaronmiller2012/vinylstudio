@@ -16,7 +16,6 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.RejectedExecutionException;
@@ -85,12 +84,22 @@ final class StudioProductFlows {
     void offerShareCutSheets(Uri written){
         final Context app=activity.getApplicationContext();
         if(!host.scheduleDiskJob(()->{
-            List<File> sheets;
+            final SharedExportFiles.CutShare cutShare;
             try(InputStream in=activity.getContentResolver().openInputStream(written)){
                 if(in==null)throw new IOException("Saved ZIP unavailable");
-                sheets=SharedExportFiles.extractCutSheets(in,SharedExportProvider.root(app));
+                cutShare=SharedExportFiles.extractCutShare(in,SharedExportProvider.root(app));
             }catch(IOException|RuntimeException error){
                 android.util.Log.w("VinylShare","Cut sheets not offered for sharing",error);return;
+            }
+            if(cutShare.reviewOnly()){
+                host.postUi(()->{
+                    if(!host.alive())return;
+                    new AlertDialog.Builder(activity).setTitle(R.string.share_review_only_title)
+                        .setMessage(activity.getString(R.string.share_review_only_message)+reportSummary(cutShare.matNote))
+                        .setNegativeButton(R.string.action_done,null)
+                        .setPositiveButton(R.string.action_share_review_zip,(d,w)->shareReviewZip(written)).show();
+                });
+                return;
             }
             String weed=null;
             try(InputStream in=activity.getContentResolver().openInputStream(written)){
@@ -100,7 +109,7 @@ final class StudioProductFlows {
             final ArrayList<Uri> uris=new ArrayList<>();
             Uri combinedUri=null;
             try{
-                for(File sheet:sheets){
+                for(File sheet:cutShare.sheets){
                     Uri uri=SharedExportProvider.uriFor(app,sheet);
                     // Build 556: the all-layers SVG is offered on its own, never mixed
                     // into the separate sheets (that would duplicate every layer).
@@ -111,7 +120,7 @@ final class StudioProductFlows {
             final Uri combined=combinedUri;
             host.postUi(()->{
                 if(!host.alive())return;
-                String weedLine=hardest==null?"":"\n\n"+activity.getString(R.string.weed_hardest_sheet,hardest);
+                String weedLine=(hardest==null?"":"\n\n"+activity.getString(R.string.weed_hardest_sheet,hardest))+reportSummary(cutShare.matNote);
                 AlertDialog.Builder dialog=new AlertDialog.Builder(activity).setTitle(R.string.share_cut_sheets_title)
                     .setNegativeButton(R.string.action_done,null);
                 if(combined!=null){
@@ -125,6 +134,21 @@ final class StudioProductFlows {
                 dialog.show();
             });
         }))android.util.Log.w("VinylShare","Disk queue busy; share offer skipped");
+    }
+
+    private static String reportSummary(String report){
+        if(report==null||report.trim().isEmpty())return "";
+        return "\n\n"+report.substring(0,Math.min(report.length(),2048));
+    }
+
+    /** Share the original review ZIP, retaining the warning and all diagnostic files. */
+    private void shareReviewZip(Uri written){
+        Intent send=new Intent(Intent.ACTION_SEND).setType("application/zip");
+        send.putExtra(Intent.EXTRA_STREAM,written);
+        send.setClipData(ClipData.newRawUri("Review ZIP",written));
+        send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try{activity.startActivity(Intent.createChooser(send,activity.getString(R.string.action_share_review_zip)));}
+        catch(ActivityNotFoundException|SecurityException none){host.toast(activity.getString(R.string.share_review_zip_unavailable));}
     }
 
     /** One SVG with every layer: a single Design Space upload instead of one per color.

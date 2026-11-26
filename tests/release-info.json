@@ -1,7 +1,7 @@
 {
-  "version": "3.5.0",
-  "versionCode": 561,
-  "versionName": "3.5.0",
-  "apk": "VinylHalftoneStudio-v3.5.0-Product561.apk",
-  "gate": "tests/run-v3-m5-release-gate.sh"
+  "version": "3.5.4",
+  "versionCode": 565,
+  "versionName": "3.5.4",
+  "apk": "VinylHalftoneStudio-v3.5.4-Product565.apk",
+  "gate": "tests/run-v3-m6-completion-gate.sh"
 }

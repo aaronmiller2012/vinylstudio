@@ -1,3 +1,32 @@
+## Build 565 — M6 consolidated qualification candidate (3.5.4)
+
+- Warning-centred bounded local Confetti conditioning; preserve prior geometry when the existing acceptance gate rejects a patch.
+- Lower-allocation clearance inspection and exact ribbon continuity optimization.
+- Bound parallel sheet conditioning on constrained heaps.
+- Add production-backend qualification gate; no cut-safety bypass.
+
+## Build 564 — M6 refinement candidate (3.5.3)
+
+- Bounded, coverage-guarded post-union Confetti repair; unchanged raw geometry if rejected.
+- Prismatic color-cost reuse; 12 baseline draft hashes pinned.
+- Disk-backed NAS stage scratch and failure diagnostics.
+- Linocut and Banknote experiments rejected; original engines retained.
+
+## Build 563 — M6 adaptive Confetti development candidate (3.5.2)
+
+Adaptive spacing, size, and opaque area-mixture palette assignment across the six Confetti styles. New benchmark and vector export/review regression gate. Physical cut qualification remains open.
+
+## Build 562 — M6 reliability candidate (3.5.1)
+
+See `docs/engineering/M6-562.md` for scope and verification limitations.
+
+- Physically bounded repair grid and localized fallback preserving legal remote contours.
+- Review-only cut-share protection and mat/qualification report preservation.
+- Conservative memory-aware sequential geometry and safer photo-palette suggestion lifecycle.
+- Stable style family filters and exhaustive Config memo-key contract test.
+- Unified NAS source preflight, stable thumbnail identity test, 85 mandatory gates.
+- Full Android/JTS gates, device and physical qualification still pending.
+
 ## Build 561 — M5 completion candidate (3.5.0)
 
 Report: `docs/assessments/2026-11-25-m5-completion-report.md`. Host-verified only.

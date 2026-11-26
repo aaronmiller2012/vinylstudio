@@ -363,6 +363,7 @@ public final class StyleCutGeometryPreflight {
             // A segment pair is only considered for one outer j. Stamping k
             // avoids allocating a boxed Long for each nearby pair.
             final int[] checkedBy=new int[segments.size()];
+            final double[] nearest=new double[5];
             java.util.Arrays.fill(checkedBy,-1);
             for(int j=0;j<segments.size()&&warnings.size()<limit;j++){
                 if((j&127)==0)StyleKit.checkCancelled();
@@ -388,7 +389,8 @@ public final class StyleCutGeometryPreflight {
                                     ||shortCornerConnector(sg,other,minimumMm)))continue;
                             float clearance=touching==0?separatedEdges(sg,other):0f;
                             if(touching==0&&clearance+.003f<threshold&&classified){
-                                double[] near2=closestPoints(sg,other);
+                                closestPoints(sg,other,nearest);
+                                double[] near2=nearest;
                                 double mx=(near2[0]+near2[2])*.5,my=(near2[1]+near2[3])*.5;
                                 boolean vinyl=fill.inside(segments,mx,my);
                                 float need=vinyl?minimumMm:gapMm;
@@ -401,7 +403,7 @@ public final class StyleCutGeometryPreflight {
                                     touching==2?"Touching cut contours":
                                     "Local vinyl neck or same-sheet gap below "+(classified?minimumMm+" / "+gapMm:minimumMm+"")+" mm";
                                 float mx=x,my=y;
-                                if(touching==0){double[] cp=closestPoints(sg,other);mx=(float)((cp[0]+cp[2])*.5);my=(float)((cp[1]+cp[3])*.5);}
+                                if(touching==0){if(!classified)closestPoints(sg,other,nearest);double[] cp=nearest;mx=(float)((cp[0]+cp[2])*.5);my=(float)((cp[1]+cp[3])*.5);}
                                 if(warnings.size()<limit)warnings.add(new Warning(li,x,y,reason,mx,my));
                                 flagged=true;reported++;break;
                             }
@@ -417,18 +419,17 @@ public final class StyleCutGeometryPreflight {
     }
 
     /** Closest points (ax,ay,bx,by) between two non-touching segments. */
-    private static double[] closestPoints(Segment a,Segment b){
-        double[][] c={
-            proj(a.x,a.y,b,true),proj(a.xx,a.yy,b,true),proj(b.x,b.y,a,false),proj(b.xx,b.yy,a,false)};
-        double[] best=c[0];
-        for(double[] q:c)if(q[4]<best[4])best=q;
-        return best;
+    private static void closestPoints(Segment a,Segment b,double[] best){
+        best[4]=Double.POSITIVE_INFINITY;
+        projectCloser(a.x,a.y,b,true,best);projectCloser(a.xx,a.yy,b,true,best);
+        projectCloser(b.x,b.y,a,false,best);projectCloser(b.xx,b.yy,a,false,best);
     }
-    private static double[] proj(double px,double py,Segment s,boolean pointOnA){
+    private static void projectCloser(double px,double py,Segment s,boolean pointOnA,double[] best){
         double dx=s.xx-s.x,dy=s.yy-s.y,d=dx*dx+dy*dy;
         double t=d==0?0:Math.max(0,Math.min(1,((px-s.x)*dx+(py-s.y)*dy)/d));
         double qx=s.x+t*dx,qy=s.y+t*dy,dist=FastGeom.len(px-qx,py-qy);
-        return pointOnA?new double[]{px,py,qx,qy,dist}:new double[]{qx,qy,px,py,dist};
+        if(dist<best[4]){best[0]=pointOnA?px:qx;best[1]=pointOnA?py:qy;
+            best[2]=pointOnA?qx:px;best[3]=pointOnA?qy:py;best[4]=dist;}
     }
     /** Same-contour pair enclosing a small dead-end region with its chord. */
     private static boolean deadEnd(java.util.List<Segment> all,Segment a,Segment b,double[] near,float minimumMm){

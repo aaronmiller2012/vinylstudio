@@ -43,10 +43,16 @@ rollback(){
 trap rollback EXIT
 unzip -oq "$HOME/Downloads/$ARCHIVE" -d "$STAGE"
 [[ -f "$STAGE/$SRC_DIR/BUILD_ON_NAS.sh" ]] || { echo 'Source directory incomplete' >&2; exit 14; }
-mkdir -p -- "$STAGE/apk"
+mkdir -p -- "$STAGE/apk" "$STAGE/tmp"
+# Host gate scratch must not compete with RAM-backed /tmp on low-memory NAS systems.
+# Scope the directory to the isolated transaction; rollback removes it on failure.
+export TMPDIR="$STAGE/tmp"
+export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Djava.io.tmpdir=\"$TMPDIR\""
+printf '[NAS] disk-backed scratch: %s\n' "$TMPDIR"
 cd "$STAGE/$SRC_DIR"
 VINYL_APK_OUTPUT="$STAGE/apk/$APK" bash BUILD_ON_NAS.sh
 [[ -s "$STAGE/apk/$APK" ]] || { echo 'Built APK missing from isolated stage' >&2; exit 32; }
+rm -rf -- "$STAGE/tmp"
 RELEASE="$ROOT/releases/$(date +%Y%m%d-%H%M%S)-$$.release"
 mv -- "$STAGE" "$RELEASE"
 COMMITTED=1

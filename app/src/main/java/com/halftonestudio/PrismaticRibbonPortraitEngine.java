@@ -241,9 +241,10 @@ public final class PrismaticRibbonPortraitEngine {
      * perceptual planning model, not translucent pigment mixing in the preview.
      */
     private static final class BandPair {
-        final int a,b;final float wa,wb,l,x,y,penalty;
+        final int a,b;final float wa,wb,l,x,y,penalty,ca,cb;
         BandPair(int a,int b,float wa,float wb,float[][] lab,float[][] rgb){
             this.a=a;this.b=b;this.wa=wa;this.wb=wb;
+            ca=a>=b?wa:wa*(1-wb);cb=b>a?wb:wb*(1-wa);
             float[] visible=RibbonColorMath.composite(rgb,a,b,wa,wb);
             l=visible[0];x=visible[1];y=visible[2];
             penalty=34f*(wa-wb)*(wa-wb)+(a==b&&a!=0&&lab.length>2?22f:0f);
@@ -342,6 +343,7 @@ public final class PrismaticRibbonPortraitEngine {
             float lightMin=100f,lightMax=0f;
             for(float[] c:lab){lightMin=Math.min(lightMin,c[0]);lightMax=Math.max(lightMax,c[0]);}
             float range=lightMax-lightMin;
+            float[] swatchCosts=new float[lab.length];
             for(int lane=0;lane<lanes;lane++){
                 StyleKit.checkCancelled();
                 int previous=0;
@@ -368,12 +370,13 @@ public final class PrismaticRibbonPortraitEngine {
                     // as a soft target instead of chasing unattainable source hues.
                     int near=0;for(int j=1;j<lab.length;j++)if(Math.abs(lab[j][0]-target[0])<Math.abs(lab[near][0]-target[0]))near=j;
                     for(int c=1;c<3;c++)target[c]+=adapt*.72f*(lab[near][c]-target[c]);
+                    RibbonColorMath.fillCosts(target,lab,swatchCosts);
                     BandPair best=null;float bestCost=Float.POSITIVE_INFINITY;
                     float cap=twillCap(lane,k,target[0]);
                     for(BandPair pair:candidates){
                         if((cross?pair.wb:pair.wa)>cap)continue;
                         int own=cross?pair.b:pair.a;
-                        float cost=pairCost(pair,target,lab)+patternCost(pair,lane,k);
+                        float cost=pairCost(pair,target,swatchCosts)+patternCost(pair,lane,k);
                         if(previous!=own)cost+=(previous==0||own==0?85f:95f)*(1.2f-.35f*feature)*(1f-.62f*adapt);
                         if(cost<bestCost){best=pair;bestCost=cost;}
                     }
@@ -474,10 +477,9 @@ public final class PrismaticRibbonPortraitEngine {
             return PrismaticRibbonGeometry.tangentSlope(xx,xy,yy,cross);
         }
         private float lum(float x,float y){return f.photo.lum[f.photo.pixelIndex(x,y)];}
-        private float pairCost(BandPair p,float[] target,float[][] lab){
+        private float pairCost(BandPair p,float[] target,float[] swatchCosts){
             float dl=target[0]-p.l,da=target[1]-p.x,db=target[2]-p.y;
-            float ca=p.a>=p.b?p.wa:p.wa*(1-p.wb),cb=p.b>p.a?p.wb:p.wb*(1-p.wa);
-            float speckle=ca*RibbonColorMath.cost(target,lab[p.a])+cb*RibbonColorMath.cost(target,lab[p.b]);
+            float speckle=p.ca*swatchCosts[p.a]+p.cb*swatchCosts[p.b];
             return (2.45f+1.6f*adapt)*dl*dl+chromaWeight*(da*da+db*db)+(.16f+.30f*adapt)*speckle+p.penalty;
         }
         private int nearest(float x,float y){
@@ -490,10 +492,12 @@ public final class PrismaticRibbonPortraitEngine {
             java.util.ArrayList<java.util.ArrayList<BandPair>> bySlot=new java.util.ArrayList<>();
             for(int i=0;i<lab.length;i++)bySlot.add(new java.util.ArrayList<>());
             for(BandPair p:candidates)bySlot.get(cross?p.a:p.b).add(p);
+            float[] swatchCosts=new float[lab.length];
             for(int lane=0;lane<lanes;lane++){
                 StyleKit.checkCancelled();
                 for(int k=0;k<steps;k++){
                     int at=lane*steps+k;float[] target=targets[at];if(target==null)continue;
+                    RibbonColorMath.fillCosts(target,lab,swatchCosts);
                     int j=other.nearest(sampleX[at],sampleY[at]),op=j<0?0:other.slot[j];
                     float ow=j<0?0:other.width[j];BandPair best=null;float bestCost=Float.POSITIVE_INFINITY;
                     int prev=k==0?0:slot[at-1],next=k==steps-1?0:slot[at+1];
@@ -502,7 +506,7 @@ public final class PrismaticRibbonPortraitEngine {
                         if(Math.abs((cross?p.wa:p.wb)-ow)>1e-5f)continue;
                         if((cross?p.wb:p.wa)>cap)continue;
                         int own=cross?p.b:p.a;
-                        float cost=pairCost(p,target,lab)+patternCost(p,lane,k)+((own==prev?0:75)+(own==next?0:75))*(1-.35f*feature);
+                        float cost=pairCost(p,target,swatchCosts)+patternCost(p,lane,k)+((own==prev?0:75)+(own==next?0:75))*(1-.35f*feature);
                         if(cost<bestCost){bestCost=cost;best=p;}
                     }
                     if(best!=null){slot[at]=(byte)(cross?best.b:best.a);width[at]=cross?best.wb:best.wa;}

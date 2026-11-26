@@ -35,6 +35,7 @@ final class FallenConfettiEngine {
         int slot;
         final long seed;
         final boolean clustered;
+        float exclusion; // sampling separation, not physical geometry
         Piece(float x,float y,float radius,float angle,float stretch,
               int kind,int slot,long seed,boolean clustered){
             this.x=x;this.y=y;this.radius=radius;this.angle=angle;
@@ -93,9 +94,14 @@ final class FallenConfettiEngine {
         }
     }
     static Plan sample(StyleKit.Source src,PatternPortraitTrioEngine.Options o,int[] colors){
+        // Low-detail remains deliberately coarse; transition continuously above 25.
+        return sample(src,o,colors,Math.max(0f,(o.detail-25)/75f));
+    }
+    static Plan sample(StyleKit.Source src,PatternPortraitTrioEngine.Options o,int[] colors,float adaptive){
         final Plan plan=new Plan();
         final SplittableRandom rnd=new SplittableRandom(o.seed^0x4A19F5C2E75B3D10L);
         final TonalSlots tone=new TonalSlots(src,colors);
+        final ConfettiCoverageModel coverage=adaptive>0?new ConfettiCoverageModel(colors):null;
         final float width=src.widthMm, height=src.heightMm;
         // At 11 in, a typical chip is 2-6 mm wide; three size classes cover
         // larger flakes, medium paper chips and fine highlight fragments.
@@ -103,42 +109,61 @@ final class FallenConfettiEngine {
                              7.4f-3.55f*o.detail/100f);
         // Fallen mode uses less uniform anchor separation and more clustered
         // debris; other styles share the same continuous scatter plane.
+        if(adaptive>0){
+            float fine=Math.max(Math.max(o.minCutMm*4.6f+o.gapMm*.4f,o.spacingMm*3.7f),
+                                6.4f-3.7f*o.detail/100f);
+            pitch+=(fine-pitch)*adaptive;
+        }
         final boolean fallen=o.confettiMode==MODE_FALLEN;
         plan.pitch=pitch;
         float spacing=pitch*(fallen?.55f:.62f);
-        float gridCell=spacing*.707107f;
+        float gridCell=spacing*.707107f*(adaptive>0?.72f:1f);
         int gw=Math.max(1,(int)Math.ceil(width/gridCell));
         int gh=Math.max(1,(int)Math.ceil(height/gridCell));
         // Bound the grid for huge physical sizes / tiny cuts.
         if((long)gw*gh>1_500_000L)throw new IllegalArgumentException("Confetti scatter grid too large");
         int[] grid=new int[gw*gh];Arrays.fill(grid,-1);
         final ArrayList<Piece> anchors=new ArrayList<>();
-        int target=Math.min(3800,Math.max(28,(int)(width*height/(pitch*pitch)*.72f)));
+        int target=Math.min(3800+(int)(adaptive*800),Math.max(28,(int)(width*height/(pitch*pitch)*(.72f+.23f*adaptive))));
         int attempts=Math.min(140000,target*24);
         for(int i=0;i<attempts&&anchors.size()<target;i++){if(((i)&63)==0)CancellationCheckpoint.check();
             if((i&511)==0)StyleKit.checkCancelled();
             float x=unitFloat(rnd)*width, y=unitFloat(rnd)*height;
             if(!src.validAt(x,y))continue;
-            float edge=edge(src,x,y,pitch*.20f);
+            float edge=adaptive>0?subjectEdge(src,x,y,pitch*.32f):edge(src,x,y,pitch*.20f);
             float light=src.lumAt(x,y);
             // Scattering is intentionally incomplete: broad islands of the
             // underlay remain exposed. Face detail earns extra fragments.
             float probability=(fallen?.58f:.66f)+.20f*edge+.08f*light;
+            float localSpacing=spacing;
+            if(coverage!=null){
+                coverage.choose(src.colorAt(x,y));
+                float demand=coverage.fraction;
+                probability=probability*(1-adaptive)+adaptive*(.16f+.70f*demand+.13f*edge);
+                localSpacing=spacing*(1+adaptive*(.37f-.62f*demand-.22f*edge));
+                localSpacing=Math.max(spacing*.72f,localSpacing);
+            }
             if(unitFloat(rnd)>probability)continue;
             int cx=Math.min(gw-1,(int)(x/gridCell));
             int cy=Math.min(gh-1,(int)(y/gridCell));
             boolean free=true;
-            for(int yy=Math.max(0,cy-2);yy<=Math.min(gh-1,cy+2)&&free;yy++)
-                for(int xx=Math.max(0,cx-2);xx<=Math.min(gw-1,cx+2);xx++){if(((xx)&63)==0)CancellationCheckpoint.check();
+            int reach=adaptive>0?4:2;
+            for(int yy=Math.max(0,cy-reach);yy<=Math.min(gh-1,cy+reach)&&free;yy++)
+                for(int xx=Math.max(0,cx-reach);xx<=Math.min(gw-1,cx+reach);xx++){if(((xx)&63)==0)CancellationCheckpoint.check();
                     int j=grid[yy*gw+xx];
                     if(j<0)continue;
                     Piece q=anchors.get(j);
                     float dx=x-q.x,dy=y-q.y;
-                    if(dx*dx+dy*dy<spacing*spacing){free=false;break;}
+                    float separation=adaptive>0?(localSpacing+q.exclusion)*.5f:spacing;
+                    if(dx*dx+dy*dy<separation*separation){free=false;break;}
                 }
             if(!free)continue;
-            Piece main=piece(src,o,tone,rnd,x,y,pitch,false,-1);
+            float localPitch=pitch;
+            if(coverage!=null)localPitch*=1+adaptive*(.26f*coverage.fraction-.29f*edge);
+            Piece main=piece(src,o,tone,rnd,x,y,localPitch,false,-1);
             if(main==null)continue;
+            if(coverage!=null&&unitFloat(rnd)<adaptive)main.slot=coverage.slot;
+            main.exclusion=localSpacing;
             grid[cy*gw+cx]=anchors.size();
             anchors.add(main);
             plan.pieces.add(main);plan.types[main.kind]++;
@@ -163,6 +188,10 @@ final class FallenConfettiEngine {
             if(!src.validAt(x,y))continue;
             Piece child=piece(src,o,tone,rnd,x,y,pitch*.72f,true,parent.slot);
             if(child==null)continue;
+            if(coverage!=null){
+                coverage.choose(src.colorAt(x,y));
+                if(unitFloat(rnd)<adaptive)child.slot=coverage.slot;
+            }
             plan.pieces.add(child);plan.types[child.kind]++;
             plan.clustered++;
             if(distance<parent.radius+child.radius)plan.overlaps++;
@@ -305,8 +334,11 @@ final class FallenConfettiEngine {
         return 0xFF000000|(r<<16)|(g<<8)|b;
     }
     static int render(PatternPortraitTrioEngine.Surface surface,PatternPortraitTrioEngine.Options o,int[] palette){
-        surface.fillValid(0); // Mandatory solid Snip silhouette; L1 counts in 2..8.
-        Plan plan=sample(surface.src,o,palette);
+        // Mandatory solid Snip silhouette; L1 counts in 2..8.
+        return renderPlan(surface,o,sample(surface.src,o,palette));
+    }
+    static int renderPlan(PatternPortraitTrioEngine.Surface surface,PatternPortraitTrioEngine.Options o,Plan plan){
+        surface.fillValid(0);
         for(int i=0;i<plan.pieces.size();i++){if(((i)&63)==0)CancellationCheckpoint.check();
             if((i&255)==0)StyleKit.checkCancelled();
             Piece piece=plan.pieces.get(i);
@@ -356,6 +388,14 @@ final class FallenConfettiEngine {
             xy[i]=x+dx*c-dy*s;xy[i+1]=y+dx*s+dy*c;
         }
         return xy;
+    }
+    private static float subjectEdge(StyleKit.Source s,float x,float y,float r){
+        float center=s.lumAt(x,y);
+        float a=s.validAt(x+r,y)?s.lumAt(x+r,y):center;
+        float b=s.validAt(x-r,y)?s.lumAt(x-r,y):center;
+        float c=s.validAt(x,y+r)?s.lumAt(x,y+r):center;
+        float d=s.validAt(x,y-r)?s.lumAt(x,y-r):center;
+        return StyleKit.clampF((float)Math.hypot(a-b,c-d)*2.5f,0f,1f);
     }
     private static float edge(StyleKit.Source s,float x,float y,float r){
         float dx=s.lumAt(x+r,y)-s.lumAt(x-r,y);

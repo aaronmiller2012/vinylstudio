@@ -92,6 +92,8 @@ Report: `docs/assessments/2026-11-25-m5-completion-report.md`. Beta: 560 (`docs/
 
 ## M6: Architecture and reliability completion
 
+562 is a focused candidate; see `docs/engineering/M6-562.md` for implemented work, pending items and verification limits.
+
 - Extract `EditorState` (settings + palettes + per-style memory) and render scheduling out of `StudioActivity`.
 - Declared render inputs per style (cache-key contract); per-style contract (inputs, cut route, smoothing, palette family).
 - Lifecycle deferrals from `docs/engineering/M5-LIFECYCLE-AUDIT.md`: A5 palette suggestion dropped on generation bump, A7 `configChanges` for uiMode/fontScale/locale, A8 `onTrimMemory`.

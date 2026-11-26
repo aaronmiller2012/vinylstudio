@@ -27,6 +27,10 @@ final class VectorBooleanEngine {
          * merges same-sheet weed gaps narrower than 2*closeR and drops vinyl necks
          * narrower than 2*openR. Backends without buffering leave the shape unchanged. */
         default Object cutCondition(Object shape,Object clip,float closeR,float openR,float tolerance){return shape;}
+        /** Optional bounded, warning-centred repair. Null means unsupported.
+         * The caller always rechecks full-sheet findings and visible coverage. */
+        default ArrayList<float[]> localizedCondition(Object shape,Object clip,List<float[]> raw,
+                List<float[]> windows,float closeR,float openR,float tolerance){return null;}
         /** Net filled area, or NaN when the backend cannot measure it. */
         default double area(Object shape){return Double.NaN;}
     }
@@ -110,6 +114,95 @@ final class VectorBooleanEngine {
             if(out.isEmpty()&&!allowEmpty)throw new IllegalStateException("Vector overlay has no cuttable geometry after Snip clipping; reduce layers or increase artwork size");
             return out;
         }
+        /** Adaptive Confetti only: retain the original union unless conditioning reduces
+         * classified findings while preserving its spatial coverage. Never alter the foundation. */
+        ArrayList<float[]> finishConfetti(int slot,float width,float height,float min,float gap){
+            CancellationCheckpoint.check();
+            if(slot<=0||slot>=sheets.size()||clip==null)throw new IllegalStateException("Vector union needs its structural Snip");
+            ArrayList<Motif> list=sheets.get(slot);
+            if(list.isEmpty())throw new IllegalStateException("Vector overlay has no motifs; reduce layers or increase artwork size");
+            Motif[] batch=list.toArray(new Motif[0]);list.clear();
+            Node merged=batch.length>=PARALLEL_MIN_MOTIFS&&ParallelGeometry.enabled()?
+                ParallelGeometry.invoke(new UnionTask(ParallelGeometry.token(),batch,0,batch.length,0)):
+                union(batch,0,batch.length);
+            Object original=b.intersect(b.removeMicroFragments(merged.path,minVinylArea,minWasteArea),clip);
+            ArrayList<float[]> raw=checkedContours(b.contours(original),width,height);
+            if(raw.isEmpty())throw new IllegalStateException("Vector overlay has no cuttable geometry after Snip clipping; reduce layers or increase artwork size");
+            if(!ConfettiVectorRepair.eligible(raw))return raw;
+            try{
+                List<StyleCutGeometryPreflight.Warning> rawWarnings=ConfettiVectorRepair.warnings(raw,width,height,min,gap);
+                int before=ConfettiVectorRepair.count(rawWarnings);
+                if(before<=0)return raw;
+                ArrayList<float[]> candidate;
+                if(ConfettiVectorRepair.smallGroup(raw)){
+                    candidate=confettiMorphology(original,width,height,min,gap);
+                }else{
+                    // Don't repeatedly buffer an entire densely populated 11-inch sheet.
+                    // Padded bounds keep adjacent contours and nested holes together.
+                    // Only a bounded number of small groups may be altered; the complete
+                    // sheet is re-inspected before accepting any candidate.
+                    List<List<float[]>> groups=CutRepairPartitions.group(raw,2f*Math.max(min,gap)+.20f);
+                    candidate=new ArrayList<>(raw.size());int attempts=0,work=0;
+                    boolean changed=false;
+                    for(List<float[]> group:groups){
+                        CancellationCheckpoint.check();
+                        int points=ConfettiVectorRepair.points(group);
+                        if(attempts>=ConfettiVectorRepair.MAX_GROUP_ATTEMPTS||
+                            work+points>ConfettiVectorRepair.MAX_GROUP_POINTS||!ConfettiVectorRepair.smallGroup(group)){
+                            candidate.addAll(group);continue;
+                        }
+                        int count=ConfettiVectorRepair.findings(group,width,height,min,gap);
+                        if(count<=0){candidate.addAll(group);continue;}
+                        attempts++;work+=points;
+                        try{
+                            Object region=b.clipPath(group.toArray(new float[0][]));
+                            ArrayList<float[]> fixed=confettiMorphology(region,width,height,min,gap);
+                            if(ConfettiVectorRepair.accept(group,fixed,width,height,min,gap,count)){
+                                candidate.addAll(fixed);changed=true;continue;
+                            }
+                        }catch(java.util.concurrent.CancellationException cancelled){throw cancelled;}
+                         catch(RuntimeException rejected){/* Optional repair; keep the exact group. */}
+                        candidate.addAll(group);
+                    }
+                    if(!changed)candidate=raw;
+                }
+                ArrayList<float[]> best=candidate!=raw&&ConfettiVectorRepair.accept(raw,candidate,width,height,min,gap,before)?candidate:raw;
+                // Small sheets already benefit from whole/group morphology. At larger
+                // sizes a long connected component may span the whole artwork, so
+                // use a bounded core+halo patch instead of conditioning that component.
+                if(Math.max(width,height)>=200f){
+                    CancellationCheckpoint.check();
+                    List<StyleCutGeometryPreflight.Warning> currentWarnings=best==raw?rawWarnings:ConfettiVectorRepair.warnings(best,width,height,min,gap);
+                    int current=ConfettiVectorRepair.count(currentWarnings);
+                    if(current>0){
+                        List<float[]> windows=ConfettiVectorRepair.windows(
+                            currentWarnings,width,height,min,gap);
+                        if(!windows.isEmpty()){
+                            try{
+                                Object base=best==raw?original:b.clipPath(best.toArray(new float[0][]));
+                                ArrayList<float[]> local=b.localizedCondition(base,clip,best,windows,gap*.5f+.03f,min*.5f+.03f,tolerance);
+                                if(local!=null){
+                                    local=checkedContours(local,width,height);
+                                    // Require both incremental and cumulative fidelity.
+                                    if(ConfettiVectorRepair.retainsCoverage(best,local,width,height,min)&&
+                                        (best==raw||ConfettiVectorRepair.retainsCoverage(raw,local,width,height,min))){
+                                        int next=ConfettiVectorRepair.findings(local,width,height,min,gap);
+                                        if(next>=0&&next<current&&next<before)return local;
+                                    }
+                                }
+                            }catch(java.util.concurrent.CancellationException cancelled){throw cancelled;}
+                             catch(RuntimeException rejected){/* Preserve the best previous candidate. */}
+                        }
+                    }
+                }
+                return best;
+            }catch(java.util.concurrent.CancellationException cancelled){throw cancelled;}
+             catch(RuntimeException rejected){return raw;}
+        }
+        private ArrayList<float[]> confettiMorphology(Object original,float width,float height,float min,float gap){
+            Object repaired=b.cutCondition(original,clip,gap*.5f+.03f,min*.5f+.03f,tolerance);
+            return checkedContours(b.contours(b.intersect(repaired,clip)),width,height);
+        }
         /** Area changed by the last {@link #finishConditioned}: [before, after] in mm^2. */
         final double[] lastConditionedArea=new double[2];
         /** As {@link #finish} but with post-Boolean, post-clip cut conditioning. The
@@ -145,7 +238,7 @@ final class VectorBooleanEngine {
             int n=sheets.size();
             ArrayList<ArrayList<float[]>> out=new ArrayList<>();
             for(int i=0;i<n;i++)out.add(new ArrayList<>());
-            if(!ParallelGeometry.enabled()){
+            if(!ParallelGeometry.enabled()||!ParallelGeometry.allowConcurrentSheets(points,width,Runtime.getRuntime().maxMemory())){
                 for(int slot=1;slot<n;slot++){
                     out.set(slot,finishConditioned(slot,width,height,vinylArea,wasteArea,closeR,openR));
                     area[slot][0]=lastConditionedArea[0];area[slot][1]=lastConditionedArea[1];

@@ -19,6 +19,16 @@ import java.util.zip.ZipInputStream;
  */
 final class SharedExportFiles {
     static final int MAX_SHEETS=200;
+    static final int MAX_REPORT_BYTES=256*1024;
+    static final String UNQUALIFIED="NOT-CUT-QUALIFIED.txt", MAT_NOTE="CRICUT-MAT.txt";
+    static final class CutShare {
+        final List<File> sheets;
+        final String warning,matNote;
+        CutShare(List<File> sheets,String warning,String matNote){
+            this.sheets=sheets;this.warning=warning;this.matNote=matNote;
+        }
+        boolean reviewOnly(){return warning!=null;}
+    }
     static final long MAX_TOTAL_BYTES=96L*1024*1024;
     static final long MAX_SHEET_BYTES=48L*1024*1024;
     static final long EXPIRY_MS=24L*60*60*1000;
@@ -32,6 +42,7 @@ final class SharedExportFiles {
         if(n.endsWith(".png"))return "image/png";
         if(n.endsWith(".jpg")||n.endsWith(".jpeg"))return "image/jpeg";
         if(n.endsWith(".pdf"))return "application/pdf";
+        if(n.endsWith(".txt"))return "text/plain";
         return "application/octet-stream";
     }
 
@@ -99,23 +110,48 @@ final class SharedExportFiles {
 
     /** Extract every SVG/DXF sheet into a fresh share folder. Nothing is kept on failure. */
     static List<File> extractCutSheets(InputStream zipBytes,File root) throws IOException {
+        return extractCutShare(zipBytes,root).sheets;
+    }
+
+    /** Safety metadata and sheets come from the same read of the saved ZIP. */
+    static CutShare extractCutShare(InputStream zipBytes,File root) throws IOException {
         prune(root,System.currentTimeMillis());
         File share=new File(root,UUID.randomUUID().toString());
         if(!share.mkdirs())throw new IOException("Cannot create share folder");
         List<File> sheets=new ArrayList<>();
         Set<String> used=new HashSet<>();
         boolean ok=false;long total=0;byte[] buffer=new byte[32768];
+        String warning=null,matNote=null;
         try(ZipInputStream zip=new ZipInputStream(zipBytes)){
             ZipEntry entry;
             while((entry=zip.getNextEntry())!=null){
                 if(Thread.currentThread().isInterrupted())throw new IOException("Share preparation cancelled");
-                if(entry.isDirectory()||!isCutSheet(entry.getName()))continue;
+                if(entry.isDirectory())continue;
+                String normalized=entry.getName().replace('\\','/');
+                String name=normalized.substring(normalized.lastIndexOf('/')+1);
+                if(UNQUALIFIED.equalsIgnoreCase(name)||MAT_NOTE.equalsIgnoreCase(name)){
+                    boolean isWarning=UNQUALIFIED.equalsIgnoreCase(name);
+                    if(isWarning?warning!=null:matNote!=null)throw new IOException("Duplicate cut safety report");
+                    java.io.ByteArrayOutputStream report=new java.io.ByteArrayOutputStream();
+                    int read;
+                    while((read=zip.read(buffer))!=-1){
+                        if(Thread.currentThread().isInterrupted())throw new IOException("Share preparation cancelled");
+                        total+=read;
+                        if(report.size()+read>MAX_REPORT_BYTES||total>MAX_TOTAL_BYTES)throw new IOException("Cut safety report too large");
+                        report.write(buffer,0,read);
+                    }
+                    String value=new String(report.toByteArray(),java.nio.charset.StandardCharsets.UTF_8);
+                    if(isWarning)warning=value;else matNote=value;
+                    continue;
+                }
+                if(!isCutSheet(entry.getName()))continue;
                 if(sheets.size()>=MAX_SHEETS)throw new IOException("Too many cut sheets to share");
                 File out=new File(share,flatName(entry.getName(),used));
                 long size=0;
                 try(FileOutputStream stream=new FileOutputStream(out)){
                     int read;
                     while((read=zip.read(buffer))!=-1){
+                        if(Thread.currentThread().isInterrupted())throw new IOException("Share preparation cancelled");
                         size+=read;total+=read;
                         if(size>MAX_SHEET_BYTES||total>MAX_TOTAL_BYTES)throw new IOException("Cut sheets too large to share");
                         stream.write(buffer,0,read);
@@ -126,7 +162,7 @@ final class SharedExportFiles {
             }
             if(sheets.isEmpty())throw new IOException("Export has no SVG or DXF sheets");
             ok=true;
-            return sheets;
+            return new CutShare(sheets,warning,matNote);
         }finally{if(!ok)deleteTree(share);}
     }
 
