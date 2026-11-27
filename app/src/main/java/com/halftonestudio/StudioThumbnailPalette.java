@@ -116,6 +116,7 @@ public final class StudioThumbnailPalette {
         if(n>=0)return new int[]{BLACK,BLACK,BLACK,BLACK,BLACK};
         n=indexOf(StudioThumbnailRegistry.ART,key);
         if(n>=0)return ART[n];
+        if(key!=null&&key.startsWith("maze."))return new int[]{BLACK,BLACK,BLACK,BLACK,BLACK};
         n=StudioThumbnailRegistry.tessellationVariant(key);
         if(n>=0) {
             // A distinct harmonious 5-hue set for each active geometric layout.
@@ -127,6 +128,7 @@ public final class StudioThumbnailPalette {
         throw new IllegalArgumentException("Unknown thumbnail palette: "+key);
     }
     public static int background(String key) {
+        if(key!=null&&key.startsWith("maze."))return 0xfff2dfb8;
         if(indexOf(StudioThumbnailRegistry.SINGLE,key)>=0)return WHITE;
         if(indexOf(StudioThumbnailRegistry.SHAPES,key)>=0)return WHITE;
         if("art.tsp".equals(key))return WHITE;
@@ -137,6 +139,7 @@ public final class StudioThumbnailPalette {
         return 0xff152036;
     }
     public static int outline(String key) {
+        if(key!=null&&key.startsWith("maze."))return BLACK;
         if(indexOf(StudioThumbnailRegistry.SHAPES,key)>=0||
             indexOf(StudioThumbnailRegistry.SINGLE,key)>=0||"art.tsp".equals(key))return BLACK;
         if("art.banknote".equals(key))return 0xff29202a;
