@@ -2846,6 +2846,11 @@ public class StudioActivity extends Activity {
             newStyleColorCount=Math.max(NewStyleColorSlots.minimumSelectable(id),
                 Math.min(NewStyleColorSlots.maximumSelectable(id),preferred));
             newStyleMatchVinyl=useCamoDefaults;
+            if(VinylStyleSuite.isMaze(id)){
+                newStyleColors[0]=id==VinylStyleSuite.MULTILAYER_MAZE?0xfff2dfb8:0xff161616;
+                if(id==VinylStyleSuite.MULTILAYER_MAZE)newStyleColors[1]=0xff161616;
+                newStyleMatchVinyl=true;newStylePhotoAutoMemory[id]=false;
+            }
             if(id==VinylStyleSuite.POSTER_STENCIL){
                 newStyleColors=PopPosterEngine.posterPalette(posterOptions.posterPalette,9);
                 newStyleMatchVinyl=true;
@@ -2883,6 +2888,7 @@ public class StudioActivity extends Activity {
         if(changed)requestAlternate();
     }
     private static String newStyleVariantName(int style,int variant){
+        if(VinylStyleSuite.isMaze(style))return new String[]{"Easy","Normal","Hard","Expert"}[Math.max(0,Math.min(3,variant))];
         switch(style){
             case VinylStyleSuite.TSP:return variant==0?"Pen / Engrave":"Cut Vinyl";
             case VinylStyleSuite.LINOCUT:return variant==0?"Single pass":"Crosshatch";
@@ -3071,6 +3077,10 @@ public class StudioActivity extends Activity {
                 "Symbols follow the photograph's color regions and important edges.":
                 (newStyleVariant==2?"Opaque vinyl color plates contain cut-out, readable words. The Snip background shows through the letters.":
                  "Complete cuttable words build image detail over the solid Snip background."),13,MUTED,false));
+        if(VinylStyleSuite.isMaze(newStyleId)){
+            slider(host,"Passage width · mm",newStyleWeightMm,.8f,1.5f,.1f,v->{newStyleWeightMm=v;requestAlternate();});
+            host.addView(text("One verified route · rectangular crop, no Snip or outer image margin · puzzle and solution included in cut ZIP",12,MUTED,false));
+        }
         if(VinylStyleSuite.isPrismaticFamily(newStyleId)){
             // First control is always Spacing for this style. All controls directly
             // affect vector geometry (no hidden Advanced drawer or dead sliders).
@@ -3776,6 +3786,11 @@ public class StudioActivity extends Activity {
             addPickerChoice(out,multi,VinylStyleSuite.NAMES[id],prismaticStyleNote(id),
                 StudioThumbnailRegistry.newStyle(id),newStyleActive()&&newStyleId==style,
                 ()->{dialog.dismiss();activateNewStyle(style);});
+        }
+        for(int id=VinylStyleSuite.PORTRAIT_MAZE;id<=VinylStyleSuite.MULTILAYER_MAZE;id++){
+            final int style=id;
+            addPickerChoice(out,arts,VinylStyleSuite.NAMES[id],"Verified single-solution maze",StudioThumbnailRegistry.newStyle(id),
+                newStyleActive()&&newStyleId==style,()->{dialog.dismiss();activateNewStyle(style);});
         }
         return out;
     }
@@ -6023,6 +6038,7 @@ public class StudioActivity extends Activity {
         final int token=alternateGeneration;
         final StyleKit.Result result=newStyleResult;
         final int style=newStyleId;
+        final int mazeMountingColor=settings.paper;
         final boolean marks=settings.registration;
         final int markStyle=settings.markStyle;
         final float markSize=settings.markSizeMm, clearance=settings.registrationClearanceMm;
@@ -6069,6 +6085,7 @@ public class StudioActivity extends Activity {
                     postUi(()->publishNewStyleCut(token,result,prepared,cutVectors,cutOperations));
                 }
                 reviewedCut[0]=cut;
+                if(VinylStyleSuite.isMaze(style))PortraitMazeSuiteAdapter.verify(cut,style,minCut,minGap);
                 // Never publish a staged ZIP before the user has seen the
                 // physical-cut report, including incomplete complexity scans.
                 java.util.List<StyleCutGeometryPreflight.Warning> geometryWarnings=
@@ -6128,6 +6145,11 @@ public class StudioActivity extends Activity {
                         exported++;
                     }
                     if(exported==0)throw new IOException("Style contains no exportable geometry");
+                    if(VinylStyleSuite.isMaze(style)){
+                        putZip(zip,"maze-reference/puzzle.svg",PortraitMazeSuiteAdapter.puzzleSvg(cut,false,mazeMountingColor));
+                        putZip(zip,"maze-reference/solution.svg",PortraitMazeSuiteAdapter.puzzleSvg(cut,true,mazeMountingColor));
+                        putZip(zip,"maze-reference/verification.txt",cut.maze.report()+"\nPresentation SVGs are NOT cutter sheets.\n");
+                    }
                     putZip(zip,"layer-manifest.csv",cuts.manifest(manifest.toString()));
                     if(includeSource)putJpeg(zip,"source-photo.jpg",originalPhoto==null?photo:originalPhoto);
                     StringBuilder review=new StringBuilder("physical_layer,x_mm,y_mm,warning\n");
@@ -12520,6 +12542,16 @@ public class StudioActivity extends Activity {
                     paint.setStrokeWidth(cache.strokeWidths[i]);
                     cv.drawPath(cache.strokes[i],paint);
                 }
+            }
+            if(result.maze!=null&&newStyleSelectedLayer<0&&previewMode==0&&!silhouetteOnly()&&!basePreviewActive()){
+                final PerfectPortraitMaze.Result maze=result.maze;
+                paint.setStyle(Paint.Style.FILL);paint.setColor(0xffE6673E);
+                float label=Math.max(1.6f,Math.min(3.2f,artW/65f));
+                paint.setTextSize(label);paint.setTextAlign(Paint.Align.LEFT);
+                cv.drawText("START",.5f,maze.startYmm()-label*.25f,paint);
+                paint.setTextAlign(maze.finishOnLeft()?Paint.Align.LEFT:Paint.Align.RIGHT);
+                cv.drawText("FINISH",maze.finishOnLeft()?.5f:artW-.5f,maze.finishYmm()+label,paint);
+                paint.setTextAlign(Paint.Align.LEFT);
             }
             drawRegistrationOverlay(cv,artW,artH);
             drawSpecialtyRiskOverlay(cv,newStyleSelectedLayer,artW);
