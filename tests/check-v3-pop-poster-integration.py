@@ -28,7 +28,7 @@ assert 'return MULTILAYER[30]' in Path('app/src/main/java/com/halftonestudio/Stu
 import re
 registry = Path('app/src/main/java/com/halftonestudio/StudioThumbnailRegistry.java').read_text()
 arrays = {}
-for family in ('MULTILAYER', 'SHAPES', 'LINES', 'SINGLE', 'ART'):
+for family in ('MULTILAYER', 'SHAPES', 'LINES', 'SINGLE', 'ART', 'MAZE'):
     match = re.search(r'\b' + family + r'\s*=\s*\{(.*?)\};', registry, re.S)
     assert match, f'Missing {family} thumbnail registry'
     arrays[family] = re.findall(r'"([^"]+)"', match.group(1))

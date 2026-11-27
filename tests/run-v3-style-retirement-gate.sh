@@ -23,7 +23,7 @@ assert 'id>=22&&id<=25' in a and 'if(idx==26)return' in a
 assert 'if(savedLayered&&StyleSelection.isRetiredOverprint(savedOverprintKind)){' in a
 assert re.search(r'isRetiredOverprint\(savedOverprintKind\)\)\{\s*savedLayered=false;',a)
 assert 'projectSourceJson.remove("layeredCellMode")' in a
-assert 'TOP_LEVEL_COUNT = 81, TESSELLATION_COUNT = 28' in r  # +5 Prismatic ribbon styles
+assert 'TOP_LEVEL_COUNT = 89, TESSELLATION_COUNT = 28' in r  # +8 maze styles
 assert 'case VinylStyleSuite.RIDGE:return ART[' not in r
 assert 'case 26:return MULTILAYER[35]' not in r
 assert 'VinylStyleSuite.isRetiredStyleId(storedStyleId)' in a

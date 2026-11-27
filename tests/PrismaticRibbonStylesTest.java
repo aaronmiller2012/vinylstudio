@@ -31,7 +31,7 @@ public final class PrismaticRibbonStylesTest {
 
     // ---------------------------------------------------------------- registry
     static void registry(){
-        check(VinylStyleSuite.NAMES.length==53,"53 style identities");
+        check(VinylStyleSuite.NAMES.length==61,"61 style identities including eight maze styles");
         check(VinylStyleSuite.POSTER_STENCIL==47&&VinylStyleSuite.PRISMATIC_DIAGONAL==26,"historical IDs unchanged");
         check("Prismatic Diagonal Portrait".equals(VinylStyleSuite.NAMES[26]),"Diagonal name unchanged");
         String[] names={"Prismatic Contour Flow","Prismatic Twill","Prismatic Silk","Prismatic Braided Flow","Prismatic Chevron"};
@@ -58,7 +58,7 @@ public final class PrismaticRibbonStylesTest {
             check(!Arrays.equals(StudioThumbnailPalette.colors(key),StudioThumbnailPalette.colors(StudioThumbnailRegistry.newStyle(26))),"own thumbnail palette "+key);
         }
         check(!VinylStyleSuite.isPrismaticRibbon(VinylStyleSuite.PRISMATIC_DIAGONAL),"Diagonal keeps its own dispatch");
-        check(StudioThumbnailRegistry.allKeys().size()==81+28,"81 top-level + 28 tessellation thumbnails");
+        check(StudioThumbnailRegistry.allKeys().size()==89+28,"89 top-level + 28 tessellation thumbnails");
         boolean rejected=false;
         try{VinylStyleSuite.ribbonMode(VinylStyleSuite.PRISMATIC_DIAGONAL);}catch(IllegalArgumentException e){rejected=true;}
         check(rejected,"ribbonMode rejects non-ribbon IDs");
