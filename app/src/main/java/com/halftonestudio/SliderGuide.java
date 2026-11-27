@@ -510,6 +510,13 @@ final class SliderGuide {
             null,
             "difficulty");
 
+        add("Minimum requested width of the open maze passages, measured in millimeters at the selected artwork size.",
+            "Wider passages make the maze easier to trace and may reduce the number of cells and photographic detail.",
+            "Narrower passages can fit more cells and finer detail, but are harder to trace.",
+            "The engine also respects the material weed gap and minimum wall width. Check the final cut report before cutting.",
+            "Use a wider passage for a pen or finger, and inspect the exported puzzle at its actual physical size.",
+            "passage width|mm");
+
         // ---------------- Material and cut safety ----------------
         add("The narrowest piece of vinyl the export will keep.",
             "Only sturdier details are kept; easier weeding.",
