@@ -20,7 +20,7 @@ final class RenderDraftPolicy {
     }
     /** Costly algorithms use their last frame during dragging, not a misleading draft. */
     static boolean supportsSpecialtyDraft(boolean maze,int styleId) {
-        return !maze&&styleId!=VinylStyleSuite.TSP;
+        return !maze&&styleId!=VinylStyleSuite.TSP&&!VinylStyleSuite.isMaze(styleId);
     }
     static float sampleStepMm(float original) {
         if(!Float.isFinite(original)||original<=0)throw new IllegalArgumentException("Invalid sample step");
