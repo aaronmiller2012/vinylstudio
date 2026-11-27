@@ -18,6 +18,7 @@ final class PhotoStyleDefaults {
             Float.isFinite(minCutMm)?minCutMm:VinylEngine.MINIMUM_CUT_WIDTH_MM);
         final float width=Math.max(25f,Float.isFinite(artWidthMm)?artWidthMm:152.4f);
         final float complexity=stats==null?.40f:clamp(.56f*stats.edge+.44f*stats.contrast,0f,1f);
+        if(VinylStyleSuite.isMaze(style))return new Initial(90,.8f,1f);
         final int[] base={69,77,58,78,65,76,68,69,0,75,88,
             75,80,0,78,72,0,0,0,0,0,76,0,0,70,0,70,82,68,0,
             82,82,84,77,83,76,83,72,78,73,76,74,78,87,89,86,85,87,
