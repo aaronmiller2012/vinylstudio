@@ -99,6 +99,35 @@ newstyle:49:0,Prismatic Twill variant 0
 newstyle:50:0,Prismatic Silk variant 0
 newstyle:51:0,Prismatic Braided Flow variant 0
 newstyle:52:0,Prismatic Chevron variant 0
+newstyle:53:0,Portrait Maze variant 0
+newstyle:53:1,Portrait Maze variant 1
+newstyle:53:2,Portrait Maze variant 2
+newstyle:53:3,Portrait Maze variant 3
+newstyle:54:0,Organic Maze variant 0
+newstyle:54:1,Organic Maze variant 1
+newstyle:54:2,Organic Maze variant 2
+newstyle:54:3,Organic Maze variant 3
+newstyle:55:0,Hidden Portrait Maze variant 0
+newstyle:56:0,Geometric Maze variant 0
+newstyle:56:1,Geometric Maze variant 1
+newstyle:56:2,Geometric Maze variant 2
+newstyle:56:3,Geometric Maze variant 3
+newstyle:57:0,Contour Maze variant 0
+newstyle:57:1,Contour Maze variant 1
+newstyle:57:2,Contour Maze variant 2
+newstyle:57:3,Contour Maze variant 3
+newstyle:58:0,Voronoi-inspired Maze variant 0
+newstyle:58:1,Voronoi-inspired Maze variant 1
+newstyle:58:2,Voronoi-inspired Maze variant 2
+newstyle:58:3,Voronoi-inspired Maze variant 3
+newstyle:59:0,Vortex Maze variant 0
+newstyle:59:1,Vortex Maze variant 1
+newstyle:59:2,Vortex Maze variant 2
+newstyle:59:3,Vortex Maze variant 3
+newstyle:60:0,Multilayer Maze variant 0
+newstyle:60:1,Multilayer Maze variant 1
+newstyle:60:2,Multilayer Maze variant 2
+newstyle:60:3,Multilayer Maze variant 3
 tonal,Tonal Stencil
 mosaic:0,Voronoi Mosaic
 mosaic:1,Grid Mosaic

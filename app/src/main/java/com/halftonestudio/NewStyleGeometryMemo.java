@@ -18,7 +18,9 @@ final class NewStyleGeometryMemo {
     synchronized void clear(){entry=null;epoch++;}
     StyleKit.Result generate(int[] rgb,int w,int h,VinylStyleSuite.Config c,Supplier<StyleKit.Result> work){
         long sourceBytes=4L*rgb.length+(c.allowed==null?0:c.allowed.length);
-        if(c.draft||VinylStyleSuite.isPopPoster(c.style)||c.popPoster!=null||sourceBytes>LIMIT)return work.get();
+        // Maze results carry a separate immutable topology certificate and geometry;
+        // do not cache an incomplete snapshot or underestimate its memory.
+        if(c.draft||VinylStyleSuite.isMaze(c.style)||VinylStyleSuite.isPopPoster(c.style)||c.popPoster!=null||sourceBytes>LIMIT)return work.get();
         Entry prior;long ticket;synchronized(this){prior=entry;ticket=epoch;}
         if(prior!=null&&prior.w==w&&prior.h==h&&same(prior.c,c)&&Arrays.equals(prior.rgb,rgb))return copy(prior.result);
         int[] input=rgb.clone();VinylStyleSuite.Config config=c.copy();
