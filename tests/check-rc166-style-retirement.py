@@ -22,7 +22,7 @@ reg=(s/'StudioThumbnailRegistry.java').read_text()
 count=re.search(r'TOP_LEVEL_COUNT\s*=\s*(\d+),\s*TESSELLATION_COUNT\s*=\s*28;',reg)
 assert count, 'Missing registry count or tessellation baseline'
 keys=[]
-for family in ('MULTILAYER','SHAPES','LINES','SINGLE','ART'):
+for family in ('MULTILAYER','SHAPES','LINES','SINGLE','ART','MAZE'):
     match=re.search(r'String\[\] '+family+r'\s*=\s*\{(.*?)\};',reg,re.S)
     assert match, 'Missing thumbnail family '+family
     keys.extend(re.findall(r'"([^"]+)"',match.group(1)))
