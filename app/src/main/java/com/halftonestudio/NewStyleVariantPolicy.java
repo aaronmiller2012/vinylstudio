@@ -4,6 +4,7 @@ package com.halftonestudio;
 final class NewStyleVariantPolicy {
     private NewStyleVariantPolicy() { }
     static int count(int style) {
+        if(VinylStyleSuite.isMaze(style))return style==VinylStyleSuite.HIDDEN_MAZE?1:4;
         switch(style) {
             case VinylStyleSuite.BANKNOTE: return BanknoteEngravingEngine.VARIANTS.length;
             case VinylStyleSuite.TESSELLATION_MOTIF: return TessellationMotifEngine.PATTERN_SLOT_COUNT;
