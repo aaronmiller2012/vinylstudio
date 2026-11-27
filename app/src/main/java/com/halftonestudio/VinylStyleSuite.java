@@ -23,7 +23,10 @@ public final class VinylStyleSuite {
         POP_PANELS=46, POSTER_STENCIL=47,
         // Appended Prismatic ribbon family. Never reorder or reuse these IDs.
         PRISMATIC_CONTOUR_FLOW=48, PRISMATIC_TWILL=49, PRISMATIC_SILK=50,
-        PRISMATIC_BRAIDED_FLOW=51, PRISMATIC_CHEVRON=52;
+        PRISMATIC_BRAIDED_FLOW=51, PRISMATIC_CHEVRON=52,
+        PORTRAIT_MAZE=53, ORGANIC_MAZE=54, HIDDEN_MAZE=55, GEOMETRIC_MAZE=56,
+        CONTOUR_MAZE=57, VORONOI_MAZE=58, VORTEX_MAZE=59, MULTILAYER_MAZE=60;
+    public static boolean isMaze(int style){return style>=PORTRAIT_MAZE&&style<=MULTILAYER_MAZE;}
     // Reserved historical IDs. Never reuse them for another style.
     public static final int RETIRED_STYLE_ID=8;
     public static final String[] NAMES={"Low-poly Delaunay","Stained Glass","TSP Single Line",
@@ -43,7 +46,9 @@ public final class VinylStyleSuite {
         "Quilling Ribbons","Marbled Ink","Quilled Marbling",
         "(retired style 46)","Poster Stencil",
         "Prismatic Contour Flow","Prismatic Twill","Prismatic Silk",
-        "Prismatic Braided Flow","Prismatic Chevron"};
+        "Prismatic Braided Flow","Prismatic Chevron",
+        "Portrait Maze","Organic Maze","Hidden Portrait Maze","Geometric Maze",
+        "Contour Maze","Voronoi-inspired Maze","Vortex Maze","Multilayer Maze"};
     public static boolean isRetiredStyleId(int id){
         switch(id){
             case RIDGE:case 8:case CONNECTED_LACE:case SCRATCHBOARD:case DELAUNAY_WIREFRAME:
@@ -132,6 +137,7 @@ public final class VinylStyleSuite {
         final float min=Math.max(VinylEngine.MINIMUM_CUT_WIDTH_MM,
             Float.isFinite(c.minimumMm)?c.minimumMm:VinylEngine.MINIMUM_CUT_WIDTH_MM);
         final StyleKit.Result result;
+        if(isMaze(c.style))return PortraitMazeSuiteAdapter.generate(pixels,width,height,c,min);
         if(isPopPoster(c.style)){
             PopPosterEngine.Options options=c.popPoster==null?new PopPosterEngine.Options():c.popPoster.copy();
             options.style=c.style==POP_PANELS?PopPosterEngine.POP:PopPosterEngine.POSTER;
@@ -470,7 +476,7 @@ public final class VinylStyleSuite {
         final float min=cutMinimumMm(minimumMm);
         final float gap=generationGapMm(bridgeMm,minimumMm);
         StyleKit.Result out=new StyleKit.Result(source.widthMm,source.heightMm);
-        out.paperArgb=source.paperArgb;out.summary=source.summary;
+        out.paperArgb=source.paperArgb;out.summary=source.summary;out.maze=source.maze;
         final boolean organic=organicCutGeometry(style);
         // M5: the budget is workload (vertices submitted to conditioning), never wall clock, so a
         // fast and a slow device prepare exactly the same sheets and produce identical artwork.
