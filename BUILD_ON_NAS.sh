@@ -215,8 +215,8 @@ case "${VINYL_QUALIFY_RELEASE:-0}" in
      }
      # Map must be retained with the exact R8 release build that produced it.
      mkdir -p release-artifacts
-     cp -- app/build/outputs/mapping/release/mapping.txt release-artifacts/V3-code567-mapping.txt
-     sha256sum release-artifacts/V3-code567-mapping.txt > release-artifacts/V3-code567-mapping.sha256
+     cp -- app/build/outputs/mapping/release/mapping.txt release-artifacts/V3-code568-mapping.txt
+     sha256sum release-artifacts/V3-code568-mapping.txt > release-artifacts/V3-code568-mapping.sha256
      printf 'RELEASE QUALIFICATION COMPILED; actual device checks remain required.\n'
      ;;
   *) echo 'Invalid VINYL_QUALIFY_RELEASE. Set 0 (development) or 1 (release qualification).' >&2
@@ -224,7 +224,7 @@ case "${VINYL_QUALIFY_RELEASE:-0}" in
 esac
 APK=app/build/outputs/apk/debug/app-debug.apk
 [[ -s "$APK" ]] || { echo "APK build output missing" >&2; exit 5; }
-DEST="${VINYL_APK_OUTPUT:-$HOME/Downloads/VinylHalftoneStudio-v3.5.6-Product567.apk}"
+DEST="${VINYL_APK_OUTPUT:-$HOME/Downloads/VinylHalftoneStudio-v3.5.7-Product568.apk}"
 # Do not clobber the previous working artifact on a short or interrupted copy.
 mkdir -p -- "$(dirname "$DEST")"
 STAGED_APK="$(mktemp "$(dirname "$DEST")/.VinylStudio-V3-apk.XXXXXXXX")"

@@ -4,7 +4,7 @@ plugins { id 'com.android.application' }
 // Debug/host builds remain usable without publishing a placeholder URL.
 def vinylPrivacyUrl = (System.getenv('VINYL_PRIVACY_URL') ?: '').trim()
 android { namespace 'com.halftonestudio'; compileSdk 36
-    defaultConfig { applicationId 'com.halftonestudio'; minSdk 26; targetSdk 36; testInstrumentationRunner 'com.halftonestudio.StageOneInstrumentation'; versionCode 567; versionName '3.5.6'; resValue 'string', 'privacy_policy_url', vinylPrivacyUrl }
+    defaultConfig { applicationId 'com.halftonestudio'; minSdk 26; targetSdk 36; testInstrumentationRunner 'com.halftonestudio.StageOneInstrumentation'; versionCode 568; versionName '3.5.7'; resValue 'string', 'privacy_policy_url', vinylPrivacyUrl }
     // Optional production signing only. No secret is stored in this source archive.
     signingConfigs {
         if (System.getenv('VINYL_RELEASE_KEYSTORE') && System.getenv('VINYL_RELEASE_ALIAS') &&

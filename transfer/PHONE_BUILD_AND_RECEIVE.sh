@@ -2,8 +2,8 @@
 set -Eeuo pipefail
 BASE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$BASE/PHONE_COMMON.sh"
-ARCHIVE='VinylStudio-V3-Product567-source.zip'
-APK='VinylHalftoneStudio-v3.5.6-Product567.apk'
+ARCHIVE='VinylStudio-V3-Product568-source.zip'
+APK='VinylHalftoneStudio-v3.5.7-Product568.apk'
 SOURCE_DIR='VinylStudio-V3-source'
 vinyl_init 'build-and-receive'
 # Fail locally before prompting for a NAS password.

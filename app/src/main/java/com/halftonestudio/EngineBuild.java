@@ -8,7 +8,7 @@ package com.halftonestudio;
  * (enforced by tests/check-v3-product553.py).
  */
 final class EngineBuild {
-    static final int CURRENT=567;
+    static final int CURRENT=568;
     static final String KEY="engineBuild";
     private EngineBuild() { }
 

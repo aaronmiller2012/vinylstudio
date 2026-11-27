@@ -1225,6 +1225,11 @@ public class StudioActivity extends Activity {
         status.setVisibility(View.VISIBLE);
         if(ms>0)handler.postDelayed(hideStatusLine,ms);
     }
+    private void showStatusDetails(){
+        if(status==null||status.getText().length()==0)return;
+        new AlertDialog.Builder(this).setTitle("Artwork status").setMessage(status.getText().toString())
+            .setPositiveButton("Close",null).setNeutralButton("Cut Check",(d,w)->setTool(6)).show();
+    }
     private boolean panelOpen=false,restoring=false;
     /** Search text survives gallery refreshes after rename/delete; never saved in project ZIPs. */
     private String gallerySearchQuery="";
@@ -1467,7 +1472,11 @@ public class StudioActivity extends Activity {
         status.setGravity(Gravity.CENTER_VERTICAL);
         status.setPadding(dp(12),0,dp(10),0);canvasColumn.addView(status,new LinearLayout.LayoutParams(-1,dp(18)));
         status.setVisibility(View.GONE);
-        status.setOnClickListener(v->setTool(6));
+        status.setOnClickListener(v->{
+            if(StatusLinePolicy.classify(status.getText())==StatusLinePolicy.Kind.PROBLEM)showStatusDetails();
+            else setTool(6);
+        });
+        status.setOnLongClickListener(v->{showStatusDetails();return true;});
         // D9: every status.setText(...) now becomes visible feedback (StatusLinePolicy):
         // progress stays until replaced, problems stay readable, routine notes auto-hide.
         status.addTextChangedListener(new android.text.TextWatcher(){
@@ -3079,7 +3088,7 @@ public class StudioActivity extends Activity {
                  "Complete cuttable words build image detail over the solid Snip background."),13,MUTED,false));
         if(VinylStyleSuite.isMaze(newStyleId)){
             slider(host,"Passage width · mm",newStyleWeightMm,.8f,1.5f,.1f,v->{newStyleWeightMm=v;requestAlternate();});
-            host.addView(text("One verified route · rectangular crop, no Snip or outer image margin · puzzle and solution included in cut ZIP",12,MUTED,false));
+            host.addView(text("One verified route · rectangular crop without Snip · puzzle and solution included in cut ZIP",12,MUTED,false));
         }
         if(VinylStyleSuite.isPrismaticFamily(newStyleId)){
             // First control is always Spacing for this style. All controls directly
@@ -5238,6 +5247,8 @@ public class StudioActivity extends Activity {
                 android.util.Log.i("VinylNewStyles","Starting final render style="+config.style+
                     " generation="+token+" elapsedMs="+
                     (android.os.SystemClock.elapsedRealtime()-renderStart));
+                final boolean portraitMaze=VinylStyleSuite.isMaze(config.style);
+                if(portraitMaze)MazeInputPolicy.requireRectangle(circular,snips!=null&&!snips.isEmpty());
                 SpecialtyPrepared prep;
                 android.os.Trace.beginSection("VinylStudio.NewStylePrepare");
                 try{prep=specialtyPrepared(revision,source,snips,fillMode,circular,draft,adjustments);}
@@ -5246,7 +5257,7 @@ public class StudioActivity extends Activity {
                 int w=prep.bitmap.getWidth(),h=prep.bitmap.getHeight();
                 int[] rgb=prep.pixels;
                 config.allowed=new boolean[w*h];
-                float hm=config.widthMm*h/(float)w,margin=adjustments.marginMm;
+                float hm=config.widthMm*h/(float)w,margin=MazeInputPolicy.effectiveInsetMm(portraitMaze,adjustments.marginMm);
                 for(int y=0;y<h;y++)for(int x=0;x<w;x++){
                     if((y&63)==0&&Thread.currentThread().isInterrupted())throw new CancellationException();
                     int i=y*w+x;
@@ -5309,7 +5320,8 @@ public class StudioActivity extends Activity {
                 android.util.Log.e("VinylNewStyles","Render failed",error);
                 postUi(()->{if(token==alternateGeneration){
                     setRenderBusy(false);alternateStatus="Render failed: "+friendlyFailure(error,"Unable to render these settings");
-                    toast(alternateStatus);artwork.invalidate();
+                    if(status!=null)status.setText(alternateStatus);
+                    toast("Render failed. Tap the artwork status for details.");artwork.invalidate();
                     if(activeWorkspace==2){invalidateToolPanels();refreshShelfPanel();}
                 }});
             }
@@ -8207,7 +8219,9 @@ public class StudioActivity extends Activity {
     private float[] draftPoints(){float[] xy=new float[snipDraft.size()*2];for(int i=0;i<snipDraft.size();i++){xy[2*i]=snipDraft.get(i)[0];xy[2*i+1]=snipDraft.get(i)[1];}return xy;}
     private void boundaryPanel(){
         LinearLayout a=group();
-        slider(a,"No-cut inset · mm",settings.marginMm,0,15,.25f,v->settings.marginMm=v);
+        if(newStyleActive()&&VinylStyleSuite.isMaze(newStyleId))
+            a.addView(text("Maze fills the rectangular crop so both entrances stay open. Use outside material space for handling.",12,MUTED,false));
+        else slider(a,"No-cut inset · mm",settings.marginMm,0,15,.25f,v->settings.marginMm=v);
         slider(a,"Outside material space · mm",settings.outerSpacingMm,0,30,.5f,v->settings.outerSpacingMm=v);
         a.addView(text(settings.circleCrop?"Inset follows circular crop · no extra outline cut":"Inset follows rectangular crop · no extra outline cut",12,ACCENT,false));
         if(continuousStyle!=null||mazePortraitMode)a.addView(text(activeCurveFamily()&&curveVinylRibbon?

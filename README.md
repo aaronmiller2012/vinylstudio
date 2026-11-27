@@ -1,10 +1,10 @@
 # VinylStudio
 
-**Current build:** versionName 3.5.6, versionCode 567, APK `VinylHalftoneStudio-v3.5.6-Product567.apk`.
+**Current build:** versionName 3.5.7, versionCode 568, APK `VinylHalftoneStudio-v3.5.7-Product568.apk`.
 
 VinylStudio is an Android app that turns photos into stacked, opaque vinyl cut sheets. Each color becomes one physical layer, exported as per-color SVG/DXF cut files (plus PNG/PDF artwork and an assembly guide) for cutting machines such as the Cricut Explore Air 2 on a 12 × 12 in mat.
 
-> **Status:** build 567 maze development candidate based on build 565; pending CI and reconciliation with unreleased work. Full Android and inherited gate verification pending. It has not been qualified on a phone, in Design Space, or on a physical cutter.
+> **Status:** build 568 maze-input correction candidate based on build 565; pending CI and reconciliation with unreleased work. Full Android and inherited gate verification pending. It has not been qualified on a phone, in Design Space, or on a physical cutter.
 
 ## Features
 
