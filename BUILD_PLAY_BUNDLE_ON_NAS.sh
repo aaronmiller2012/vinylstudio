@@ -33,6 +33,7 @@ printf '\n===== LATEST HOST TESTS AND PLAY POLICY CHECKS =====\n'
 python3 tests/check-rc115-play.py
 # The Play bundle must pass the current development release's new geometry gate,
 # not only the inherited Beta4/RC173 baseline checks.
+bash tests/run-v3-portrait-maze-gate.sh
 bash tests/run-v3-product555-gate.sh
 bash tests/run-v3-product554-gate.sh
 bash tests/run-v3-product553-gate.sh
