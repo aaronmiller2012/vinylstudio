@@ -291,7 +291,7 @@ public final class StyleCutGeometryPreflight {
             java.util.ArrayList<Segment> segments=new java.util.ArrayList<>();
             java.util.ArrayList<float[]> tinyCandidates=new java.util.ArrayList<>();
             int path=0;
-            for(float[] p:result.layers.get(li).loops){
+            for(float[] p:canonicalLoops(result.layers.get(li).loops,li)){
                 StyleKit.checkCancelled();
                 if(p==null||p.length<6||(p.length&1)!=0)
                     throw new IllegalArgumentException("Invalid closed vinyl path in layer "+(li+1));
@@ -416,6 +416,53 @@ public final class StyleCutGeometryPreflight {
             }
         }
         return Collections.unmodifiableList(warnings);
+    }
+
+    /** M8 / I1: inspection is a function of the cut geometry, not its representation.
+     * Segment indices drive pair attribution (one marker per lower-indexed segment), spatial
+     * hash insertion order, arc positions, the first-vertex fill probe and which findings
+     * survive the warning limit. Each ring is therefore oriented positively, started at its
+     * lexicographically smallest rotation and the rings sorted by coordinates, so any start
+     * vertex, traversal direction or ring order of the same loops inspects identically.
+     * Inspection-only copies; exported geometry is never touched. */
+    static List<float[]> canonicalLoops(List<float[]> loops,int layer){
+        ArrayList<float[]> out=new ArrayList<>(loops.size());
+        for(float[] p:loops){
+            if(p==null||p.length<6||(p.length&1)!=0)
+                throw new IllegalArgumentException("Invalid closed vinyl path in layer "+(layer+1));
+            out.add(canonicalRing(p));
+        }
+        out.sort(StyleCutGeometryPreflight::compareLoops);
+        return out;
+    }
+    static float[] canonicalRing(float[] p){
+        int n=p.length/2;
+        boolean reverse=StyleKit.signedArea(p)<0;
+        // Vertex i of the oriented ring.
+        int best=0;
+        for(int s=1;s<n;s++)if(compareRotation(p,n,reverse,s,best)<0)best=s;
+        float[] q=new float[p.length];
+        for(int i=0;i<n;i++){
+            int v=vertex(n,reverse,best+i);
+            q[2*i]=p[2*v];q[2*i+1]=p[2*v+1];
+        }
+        return q;
+    }
+    private static int vertex(int n,boolean reverse,int i){i%=n;return reverse?(n-1-i):i;}
+    private static int compareRotation(float[] p,int n,boolean reverse,int a,int b){
+        for(int i=0;i<n;i++){
+            int va=vertex(n,reverse,a+i),vb=vertex(n,reverse,b+i);
+            int c=Float.compare(p[2*va],p[2*vb]);
+            if(c==0)c=Float.compare(p[2*va+1],p[2*vb+1]);
+            if(c!=0)return c;
+            // Distinct first vertices decide immediately (the common case is O(1)).
+        }
+        return 0;
+    }
+    private static int compareLoops(float[] a,float[] b){
+        int n=Math.min(a.length,b.length);
+        for(int i=0;i<n;i++){int c=Float.compare(a[i],b[i]);if(c!=0)return c;}
+        return Integer.compare(a.length,b.length);
     }
 
     /** Closest points (ax,ay,bx,by) between two non-touching segments. */

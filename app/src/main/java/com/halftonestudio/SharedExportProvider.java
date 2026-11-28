@@ -21,21 +21,24 @@ import java.util.List;
  * for the single pre-created file in a camera-* capture folder.
  */
 public final class SharedExportProvider extends ContentProvider {
+    /** Production authority (the manifest literal). The internal perf build installs
+     * side by side under its own applicationId, so code resolves it per package. */
     static final String AUTHORITY="com.halftonestudio.sharedexports";
+    static String authority(Context context){return context.getPackageName()+".sharedexports";}
     static final String DIRECTORY="shared-exports";
 
     static File root(Context context){return new File(context.getCacheDir(),DIRECTORY);}
 
     static Uri uriFor(Context context,File file) throws IOException {
         String relative=SharedExportFiles.relativePath(root(context),file);
-        Uri.Builder builder=new Uri.Builder().scheme("content").authority(AUTHORITY);
+        Uri.Builder builder=new Uri.Builder().scheme("content").authority(authority(context));
         for(String part:relative.split("/"))builder.appendPath(part);
         return builder.build();
     }
 
     private File resolve(Uri uri) throws FileNotFoundException {
         Context context=getContext();
-        if(context==null||uri==null||!AUTHORITY.equals(uri.getAuthority()))throw new FileNotFoundException("Unknown share");
+        if(context==null||uri==null||!authority(context).equals(uri.getAuthority()))throw new FileNotFoundException("Unknown share");
         List<String> segments=uri.getPathSegments();
         try{
             File file=SharedExportFiles.resolve(root(context),segments.toArray(new String[0]));

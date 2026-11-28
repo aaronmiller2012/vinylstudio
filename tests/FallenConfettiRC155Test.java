@@ -65,7 +65,12 @@ public final class FallenConfettiRC155Test {
         check(uniqueX.size()>.90*expected,"adaptive scatter repeats more x coordinates than random occupancy predicts");
         PatternPortraitTrioEngine.Surface surface=new PatternPortraitTrioEngine.Surface(source,opt.layers,opt.minCutMm);
         int pieces=FallenConfettiEngine.render(surface,opt,manual);
-        check(pieces==scatter.pieces.size(),"non-deterministic scatter");
+        // M8: overlay pieces that would leave a sub-gap sliver are moved or not placed, so render()
+        // returns the placed count. Determinism: a fresh render places exactly what the same plan
+        // places, and placed + not placed accounts for every sampled piece.
+        int placedAgain=FallenConfettiEngine.renderPlan(new PatternPortraitTrioEngine.Surface(source,opt.layers,opt.minCutMm),opt,scatter);
+        check(pieces==placedAgain&&placedAgain+scatter.dropped==scatter.pieces.size(),"non-deterministic scatter");
+        check(scatter.dropped<=scatter.pieces.size()*.15f,"sheet clearance dropped too many pieces ("+scatter.dropped+"/"+scatter.pieces.size()+")");
         int base=0,exposed=0,overlap=0;
         for(int i=0;i<surface.valid.length;i++)if(surface.valid[i]){
             base++;

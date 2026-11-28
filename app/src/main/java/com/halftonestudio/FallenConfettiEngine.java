@@ -44,6 +44,8 @@ final class FallenConfettiEngine {
         }
     }
     static final class Plan {
+        /** M8 sheet clearance: overlay pieces moved to a full weed gap / not placed. */
+        int nudged,dropped;
         final ArrayList<Piece> pieces=new ArrayList<>();
         final int[] types=new int[4];
         int clustered;
@@ -339,6 +341,8 @@ final class FallenConfettiEngine {
     }
     static int renderPlan(PatternPortraitTrioEngine.Surface surface,PatternPortraitTrioEngine.Options o,Plan plan){
         surface.fillValid(0);
+        SheetClearance clearance=new SheetClearance(o.gapMm+CLEARANCE_MARGIN_MM);
+        int placed=0;
         for(int i=0;i<plan.pieces.size();i++){if(((i)&63)==0)CancellationCheckpoint.check();
             if((i&255)==0)StyleKit.checkCancelled();
             Piece piece=plan.pieces.get(i);
@@ -347,11 +351,107 @@ final class FallenConfettiEngine {
                 if(piece.kind==DISC)poly=VectorBooleanEngine.ellipse(piece.x,piece.y,piece.radius*piece.stretch,piece.radius/piece.stretch,0,surface.vectorTolerance());
                 else if(piece.kind==STRIP)poly=VectorBooleanEngine.roundedStrip(poly,surface.vectorTolerance());
             }
+            // M8: the solid silhouette (slot 0) is never moved; overlay pieces must overlap or clear.
+            if(piece.slot>0){
+                poly=clearance.place(piece.slot,poly,piece.radius*.5f);
+                if(poly==null)continue;
+            }
             // Different layers may cover one another. On a single sheet Surface
             // unions intersecting pixels, avoiding duplicated cutter boundaries.
-            surface.polygon(piece.slot,poly);
+            surface.polygon(piece.slot,poly);placed++;
         }
-        return plan.pieces.size();
+        plan.nudged=clearance.nudged;plan.dropped=clearance.dropped;
+        return placed;
+    }
+    /** Margin over the weed gap so curve flattening and union snapping cannot reopen a sub-gap channel. */
+    static final float CLEARANCE_MARGIN_MM=.06f;
+    /**
+     * M8: manufacturable placement on each overlay sheet. Two pieces on the same sheet either
+     * overlap (the union merges them into one piece) or are at least one weed gap apart. A near
+     * miss (0 < distance < gap) left a sub-gap waste sliver that no cutter or weeder handles
+     * reliably; at 8-11 in these produced thousands of cut findings that the bounded post-union
+     * repair could not resolve. A near-miss piece is pushed directly away from its closest
+     * neighbour by the shortfall (at most three times); if that would move it more than half its
+     * size, it is not placed. Deterministic: depends only on the plan order and the geometry.
+     */
+    static final class SheetClearance {
+        final float clear;static final float CELL=4f;
+        final java.util.HashMap<Long,int[]> cells=new java.util.HashMap<>();
+        final ArrayList<float[]> shapes=new ArrayList<>(),boxes=new ArrayList<>();
+        int[] stamp=new int[256];int query;
+        int nudged,dropped;
+        SheetClearance(float clear){this.clear=clear;}
+        float[] place(int slot,float[] poly,float maxMove){
+            float[] cand=poly;float moved=0;
+            for(int attempt=0;attempt<3;attempt++){
+                float[] miss=nearMiss(slot,cand);
+                if(miss==null){
+                    if(cand!=poly)nudged++;
+                    add(slot,cand);return cand;
+                }
+                float move=clear-miss[0]+.01f;
+                moved+=move;
+                if(moved>maxMove)break;
+                cand=translate(cand,miss[1]*move,miss[2]*move);
+            }
+            dropped++;return null;
+        }
+        private static long key(int slot,int x,int y){return ((long)slot<<48)^((long)(x&0xffffff)<<24)^(y&0xffffff);}
+        private void add(int slot,float[] p){
+            int id=shapes.size();float[] b=bounds(p);shapes.add(p);boxes.add(b);
+            if(id>=stamp.length)stamp=Arrays.copyOf(stamp,stamp.length*2);
+            for(int y=(int)Math.floor(b[1]/CELL);y<=(int)Math.floor(b[3]/CELL);y++)
+                for(int x=(int)Math.floor(b[0]/CELL);x<=(int)Math.floor(b[2]/CELL);x++){
+                    long k=key(slot,x,y);int[] list=cells.get(k);
+                    if(list==null){list=new int[]{0,0,0,0,0};cells.put(k,list);}
+                    if(list[0]+1>=list.length){list=Arrays.copyOf(list,list.length*2);cells.put(k,list);}
+                    list[++list[0]]=id;
+                }
+        }
+        /** Closest same-sheet near miss as {distance, unit push x, unit push y}, or null. */
+        private float[] nearMiss(int slot,float[] p){
+            float[] b=bounds(p);float[] best=null;query++;
+            for(int y=(int)Math.floor((b[1]-clear)/CELL);y<=(int)Math.floor((b[3]+clear)/CELL);y++)
+                for(int x=(int)Math.floor((b[0]-clear)/CELL);x<=(int)Math.floor((b[2]+clear)/CELL);x++){
+                    int[] list=cells.get(key(slot,x,y));if(list==null)continue;
+                    for(int e=1;e<=list[0];e++){
+                        int id=list[e];if(stamp[id]==query)continue;stamp[id]=query;
+                        float[] qb=boxes.get(id);
+                        if(qb[0]>b[2]+clear||qb[2]<b[0]-clear||qb[1]>b[3]+clear||qb[3]<b[1]-clear)continue;
+                        float[] q=shapes.get(id);
+                        if(overlap(p,q))continue;
+                        float[] d=closest(p,q);
+                        if(d[0]<clear&&(best==null||d[0]<best[0]))best=d;
+                    }
+                }
+            return best;
+        }
+    }
+    static float[] translate(float[] p,float dx,float dy){float[] q=p.clone();for(int k=0;k<q.length;k+=2){q[k]+=dx;q[k+1]+=dy;}return q;}
+    static float[] bounds(float[] p){float a=Float.MAX_VALUE,b=a,c=-a,d=-a;for(int k=0;k<p.length;k+=2){a=Math.min(a,p[k]);c=Math.max(c,p[k]);b=Math.min(b,p[k+1]);d=Math.max(d,p[k+1]);}return new float[]{a,b,c,d};}
+    /** Boundaries cross/touch, or one shape contains the other. */
+    static boolean overlap(float[] a,float[] b){
+        int n=a.length/2,m=b.length/2;
+        for(int i=0;i<n;i++){int i2=(i+1)%n;for(int j=0;j<m;j++){int j2=(j+1)%m;
+            if(segmentsMeet(a[2*i],a[2*i+1],a[2*i2],a[2*i2+1],b[2*j],b[2*j+1],b[2*j2],b[2*j2+1]))return true;}}
+        return inside(a,b[0],b[1])||inside(b,a[0],a[1]);
+    }
+    private static boolean segmentsMeet(float ax,float ay,float bx,float by,float cx,float cy,float dx,float dy){
+        double d1=(bx-ax)*(double)(cy-ay)-(by-ay)*(double)(cx-ax),d2=(bx-ax)*(double)(dy-ay)-(by-ay)*(double)(dx-ax);
+        double d3=(dx-cx)*(double)(ay-cy)-(dy-cy)*(double)(ax-cx),d4=(dx-cx)*(double)(by-cy)-(dy-cy)*(double)(bx-cx);
+        return d1*d2<=0&&d3*d4<=0;
+    }
+    private static boolean inside(float[] p,float x,float y){boolean in=false;int n=p.length/2;for(int i=0,j=n-1;i<n;j=i++){float yi=p[2*i+1],yj=p[2*j+1];if((yi>y)!=(yj>y)&&x<p[2*i]+(y-yi)*(p[2*j]-p[2*i])/(yj-yi))in=!in;}return in;}
+    /** {distance, ux, uy} of the closest boundary pair; u points from q toward p. */
+    static float[] closest(float[] p,float[] q){
+        float best=Float.MAX_VALUE,ux=0,uy=0;
+        for(int pass=0;pass<2;pass++){float[] a=pass==0?p:q,b=pass==0?q:p;int n=a.length/2,m=b.length/2;
+            for(int i=0;i<n;i++){float px=a[2*i],py=a[2*i+1];
+                for(int j=0;j<m;j++){int j2=(j+1)%m;float x0=b[2*j],y0=b[2*j+1],x1=b[2*j2],y1=b[2*j2+1];
+                    float dx=x1-x0,dy=y1-y0,l=dx*dx+dy*dy;float t=l==0?0:Math.max(0,Math.min(1,((px-x0)*dx+(py-y0)*dy)/l));
+                    float ex=px-(x0+t*dx),ey=py-(y0+t*dy),d=(float)Math.sqrt(ex*ex+ey*ey);
+                    if(d<best&&d>0){best=d;float sgn=pass==0?1:-1;ux=sgn*ex/d;uy=sgn*ey/d;}}}}
+        return new float[]{best,ux,uy};
     }
     static float[] polygon(Piece p){
         SplittableRandom rnd=new SplittableRandom(p.seed);

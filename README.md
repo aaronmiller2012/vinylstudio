@@ -1,15 +1,15 @@
 # VinylStudio
 
-**Current build:** versionName 3.5.4, versionCode 565, APK `VinylHalftoneStudio-v3.5.4-Product565.apk`.
+**Current build:** versionName 3.7.0, versionCode 569, APK `VinylHalftoneStudio-v3.7.0-Product569.apk`.
 
 VinylStudio is an Android app that turns photos into stacked, opaque vinyl cut sheets. Each color becomes one physical layer, exported as per-color SVG/DXF cut files (plus PNG/PDF artwork and an assembly guide) for cutting machines such as the Cricut Explore Air 2 on a 12 × 12 in mat.
 
-> **Status:** development candidate. Host-verified only (JVM gates, debug build). It has not been qualified on a phone, in Design Space, or on a physical cutter.
+> **Status:** build 569 (3.7.0) release candidate: host-gated (91 gates), unit-tested and measured on an Android tablet (all 114 styles render; device regression suite passes). It has not been qualified in Cricut Design Space, Silhouette Studio or on a physical cutter. The debug APK is a development build.
 
 ## Features
 
 - Import from the photo picker, Share or "Open with"; crop and Snip (polygon cut-out).
-- 100+ style tiles: CMYK/spot halftones, line art, engraving, linocut, tessellations, layered cells, Prismatic ribbons, organic flow and more.
+- 100+ style tiles, including eight portrait maze styles with a verified single solution: CMYK/spot halftones, line art, engraving, linocut, tessellations, layered cells, Prismatic ribbons, organic flow and more.
 - Photo-derived palettes (OKLab analysis) mapped to physical vinyl colors.
 - Cut-safety preflight against the material's minimum cut width and weed gap; unverified sheets need explicit review.
 - Verified cut ZIP export (SVG and DXF R13), registration marks, and mat-fit checks that refuse exports that do not fit.

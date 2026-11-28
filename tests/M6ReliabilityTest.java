@@ -45,7 +45,11 @@ public final class M6ReliabilityTest {
     }
     static void memory(){
         ParallelGeometry.forceSequential=false;
-        ParallelGeometry.configureMemoryBudget(false,512L*1024*1024);check(!ParallelGeometry.enabled(),"small heap parallel");
+        // M7 P5: phone heaps keep within-sheet union parallelism but never run sheets concurrently.
+        ParallelGeometry.configureMemoryBudget(false,128L*1024*1024);check(!ParallelGeometry.enabled(),"tiny heap parallel");
+        ParallelGeometry.configureMemoryBudget(false,192L*1024*1024);check(ParallelGeometry.enabled()==(ParallelGeometry.PARALLELISM>1),"phone heap lost union parallelism");
+        check(!ParallelGeometry.allowConcurrentSheets(1000,76.2f,192L*1024*1024),"phone heap concurrent sheets");
+        check(!ParallelGeometry.allowConcurrentSheets(1000,76.2f,512L*1024*1024),"512 MB heap concurrent sheets");
         ParallelGeometry.configureMemoryBudget(true,1024L*1024*1024);check(!ParallelGeometry.enabled(),"low RAM parallel");
         ParallelGeometry.configureMemoryBudget(false,1024L*1024*1024);check(ParallelGeometry.enabled()==(ParallelGeometry.PARALLELISM>1),"normal scheduling changed");
         ParallelGeometry.forceSequential=true;check(!ParallelGeometry.enabled(),"test override broken");ParallelGeometry.forceSequential=false;

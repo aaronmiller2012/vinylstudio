@@ -3,6 +3,9 @@
 # Gradle hostRegression task must all run every entry. Edit this file, then run
 #   python3 scripts/sync-gates.py
 # tests/check-gate-manifest.py fails any build whose pipelines drift from this list.
+tests/run-v3-m8-geometry-gate.sh
+tests/run-v3-portrait-maze-gate.sh
+tests/run-v3-m7-device-perf-gate.sh
 tests/run-v3-m6-completion-gate.sh
 tests/run-v3-m6-refinement-gate.sh
 tests/run-v3-m6-confetti-gate.sh

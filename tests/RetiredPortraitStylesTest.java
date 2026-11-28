@@ -8,7 +8,7 @@ public final class RetiredPortraitStylesTest {
         check(VinylStyleSuite.isRetiredStyleId(VinylStyleSuite.RIDGE),"Ridge ID still selectable");
         check(VinylStyleSuite.restoredStyleId(VinylStyleSuite.RIDGE)==-1,"Ridge project reactivates");
         check(!NewStyleVariantPolicy.selectable(VinylStyleSuite.RIDGE),"Ridge variant still selectable");
-        check(StudioThumbnailRegistry.allKeys().size()==109,"Expected 81 active + 28 tessellation thumbnails");
+        check(StudioThumbnailRegistry.allKeys().size()==117,"Expected 89 active + 28 tessellation thumbnails");
         check(!StudioThumbnailRegistry.isKnown("art.ridges"),"Ridge thumbnail still registered");
         check(!StudioThumbnailRegistry.isKnown("multilayer.painterly_cell_weave"),"Painterly thumbnail still registered");
         for(String name:new String[]{"multilayer.overprint_orbits","multilayer.overprint_lozenge",

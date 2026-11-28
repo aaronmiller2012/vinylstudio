@@ -23,7 +23,10 @@ public final class VinylStyleSuite {
         POP_PANELS=46, POSTER_STENCIL=47,
         // Appended Prismatic ribbon family. Never reorder or reuse these IDs.
         PRISMATIC_CONTOUR_FLOW=48, PRISMATIC_TWILL=49, PRISMATIC_SILK=50,
-        PRISMATIC_BRAIDED_FLOW=51, PRISMATIC_CHEVRON=52;
+        PRISMATIC_BRAIDED_FLOW=51, PRISMATIC_CHEVRON=52,
+        PORTRAIT_MAZE=53, ORGANIC_MAZE=54, HIDDEN_MAZE=55, GEOMETRIC_MAZE=56,
+        CONTOUR_MAZE=57, VORONOI_MAZE=58, VORTEX_MAZE=59, MULTILAYER_MAZE=60;
+    public static boolean isMaze(int style){return style>=PORTRAIT_MAZE&&style<=MULTILAYER_MAZE;}
     // Reserved historical IDs. Never reuse them for another style.
     public static final int RETIRED_STYLE_ID=8;
     public static final String[] NAMES={"Low-poly Delaunay","Stained Glass","TSP Single Line",
@@ -43,7 +46,9 @@ public final class VinylStyleSuite {
         "Quilling Ribbons","Marbled Ink","Quilled Marbling",
         "(retired style 46)","Poster Stencil",
         "Prismatic Contour Flow","Prismatic Twill","Prismatic Silk",
-        "Prismatic Braided Flow","Prismatic Chevron"};
+        "Prismatic Braided Flow","Prismatic Chevron",
+        "Portrait Maze","Organic Maze","Hidden Portrait Maze","Geometric Maze",
+        "Contour Maze","Voronoi-inspired Maze","Vortex Maze","Multilayer Maze"};
     public static boolean isRetiredStyleId(int id){
         switch(id){
             case RIDGE:case 8:case CONNECTED_LACE:case SCRATCHBOARD:case DELAUNAY_WIREFRAME:
@@ -132,6 +137,7 @@ public final class VinylStyleSuite {
         final float min=Math.max(VinylEngine.MINIMUM_CUT_WIDTH_MM,
             Float.isFinite(c.minimumMm)?c.minimumMm:VinylEngine.MINIMUM_CUT_WIDTH_MM);
         final StyleKit.Result result;
+        if(isMaze(c.style))return PortraitMazeSuiteAdapter.generate(pixels,width,height,c,min);
         if(isPopPoster(c.style)){
             PopPosterEngine.Options options=c.popPoster==null?new PopPosterEngine.Options():c.popPoster.copy();
             options.style=c.style==POP_PANELS?PopPosterEngine.POP:PopPosterEngine.POSTER;
@@ -465,16 +471,20 @@ public final class VinylStyleSuite {
     public static StyleKit.Result prepareForCutting(StyleKit.Result source,int style,float minimumMm,float bridgeMm){
         return prepareForCutting(source,style,minimumMm,bridgeMm,PREPARE_BUDGET_WORK);
     }
+    /** Diagnostics of the last prepareForCutting on this thread's call (VinylPerf only). */
+    static volatile int lastPrepareLayers,lastPrepareAccepted;static final long[] lastPrepareNanos=new long[1];
     static StyleKit.Result prepareForCutting(StyleKit.Result source,int style,float minimumMm,float bridgeMm,long workBudget){
         if(source==null)return null;
+        lastPrepareLayers=0;lastPrepareAccepted=0;lastPrepareNanos[0]=0;lastWindowedWork=0;
         final float min=cutMinimumMm(minimumMm);
         final float gap=generationGapMm(bridgeMm,minimumMm);
         StyleKit.Result out=new StyleKit.Result(source.widthMm,source.heightMm);
-        out.paperArgb=source.paperArgb;out.summary=source.summary;
+        out.paperArgb=source.paperArgb;out.summary=source.summary;out.maze=source.maze;
         final boolean organic=organicCutGeometry(style);
         // M5: the budget is workload (vertices submitted to conditioning), never wall clock, so a
         // fast and a slow device prepare exactly the same sheets and produce identical artwork.
         long preparedWork=0;
+        ArrayList<StyleKit.Layer> deferred=new ArrayList<>();
         for(StyleKit.Layer layer:source.layers){
             StyleKit.checkCancelled();
             StyleKit.Layer copy=new StyleKit.Layer(layer.name,layer.color);
@@ -485,10 +495,14 @@ public final class VinylStyleSuite {
             // geometry; the export review still reports any finding.
             if(!leadSheet&&!copy.vectorGeometryLocked&&copy.lines.isEmpty()&&preparedWork<workBudget){
                 preparedWork+=layerWork(copy.loops);
-                conditionForCutting(out,copy,min,gap,!organic);
+                long t0=System.nanoTime();
+                conditionForCutting(out,copy,min,gap,!organic,deferred);
+                lastPrepareLayers++;lastPrepareNanos[0]+=System.nanoTime()-t0;
+                if(!copy.loops.equals(layer.loops))lastPrepareAccepted++;
             }
             out.layers.add(copy);
         }
+        if(!deferred.isEmpty())windowedRepairs(out,deferred,min,gap,WINDOWED_REPAIR_WORK);
         return out;
     }
     /** Upper bound on export-time cut preparation for one artwork, in vertices (plus a per-loop
@@ -510,6 +524,12 @@ public final class VinylStyleSuite {
         conditionForCutting(result,layer,minimumMm,gapMm,false);
     }
     static void conditionForCutting(StyleKit.Result result,StyleKit.Layer layer,float minimumMm,float gapMm,boolean local){
+        conditionForCutting(result,layer,minimumMm,gapMm,local,null);
+    }
+    /** @param deferred receives layers whose raster repair is infeasible (over budget) and unchanged;
+     *  the caller may then spend the bounded windowed-repair budget on them. */
+    static void conditionForCutting(StyleKit.Result result,StyleKit.Layer layer,float minimumMm,float gapMm,boolean local,
+                                    List<StyleKit.Layer> deferred){
         if(layer.loops.isEmpty())return;
         // A very dense layer should retain source geometry and surface its
         // existing cut-review warnings rather than trigger expensive N^2 area
@@ -542,7 +562,9 @@ public final class VinylStyleSuite {
         ArrayList<float[]> repaired;
         try{repaired=CutGeometryConditioner.condition(layer.loops,result.widthMm,result.heightMm,minimumMm,gapMm);}
         catch(CutGeometryConditioner.BudgetExceededException budget){
-            repairBySeparatedGroups(result,layer,minimumMm,gapMm);return;
+            // Only organic (raster-traced) sheets: exact geometric styles keep their sharp corners.
+            if(!repairBySeparatedGroups(result,layer,minimumMm,gapMm)&&deferred!=null&&!local)deferred.add(layer);
+            return;
         }
         if(!preservesArtwork(layer.loops,repaired))return; // keep original; export review reports it
         layer.loops.clear();layer.loops.addAll(repaired);
@@ -551,25 +573,113 @@ public final class VinylStyleSuite {
      * Preserve every independent clean group byte-for-byte; repair only defective groups, then
      * inspect the whole merged candidate. Nested and nearby contours always stay together.
      * No partial mutation or coarsening when a group cannot be repaired within the budget. */
-    private static void repairBySeparatedGroups(StyleKit.Result result,StyleKit.Layer layer,float minimumMm,float gapMm){
+    /** M8 C2b: per-artwork work budget for windowed repair, in vertices submitted to the Boolean
+     * backend (deterministic; never wall clock). Calibrated on the SM-T510, where windowed JTS repair
+     * costs ~0.7 ms per vertex (~14x a desktop JVM): 40k added 15-30 s per artwork there. */
+    static final long WINDOWED_REPAIR_WORK=8_000L;
+    /** Bounded windowed vector repair of sheets whose raster repair is infeasible (a defective group
+     * exceeds the grid budget), most findings first. Rounds of warning-centred core tiles (<= 72,
+     * <= 4% of the sheet); each round touches only the nesting trees that reach its windows and runs
+     * only if those vertices fit the remaining budget. A round is kept only if classified findings
+     * strictly drop and the sheet keeps >= 90% of its original vinyl with <= 15% changed. Remaining
+     * findings stay in the export review; nothing is suppressed. */
+    static void windowedRepairs(StyleKit.Result result,List<StyleKit.Layer> layers,float minimumMm,float gapMm,long budget){
+        VectorBooleanEngine.Backend b=VectorBooleanEngine.backend();
+        if(b==null)return;
+        final int n=layers.size();
+        final int[] counts=new int[n];
+        final ArrayList<List<StyleCutGeometryPreflight.Warning>> found=new ArrayList<>(n);
+        for(int i=0;i<n;i++){
+            StyleKit.checkCancelled();
+            List<StyleCutGeometryPreflight.Warning> f;
+            try{f=inspectLayer(result,layers.get(i).loops,minimumMm,gapMm,ConfettiVectorRepair.LIMIT);}
+            catch(IllegalArgumentException bad){f=java.util.Collections.emptyList();}
+            found.add(f);counts[i]=ConfettiVectorRepair.count(f);
+        }
+        Integer[] order=new Integer[n];for(int i=0;i<n;i++)order[i]=i;
+        java.util.Arrays.sort(order,(x,y)->{int c=Integer.compare(counts[y],counts[x]);return c!=0?c:Integer.compare(x,y);});
+        long[] left={budget};
+        for(int i:order){
+            // A count at the inspection cap cannot show improvement; do not spend budget on it.
+            if(counts[i]<=0||counts[i]>=ConfettiVectorRepair.LIMIT||left[0]<=0)continue;
+            windowedRepair(result,layers.get(i),minimumMm,gapMm,found.get(i),counts[i],left);
+        }
+        lastWindowedWork=budget-left[0];
+    }
+    /** Work spent by the last windowedRepairs call on this artwork (tests, VinylPerf). */
+    static volatile long lastWindowedWork;
+    /** Contacts, crossings and overlaps: findings no repair may add. */
+    static int critical(List<StyleCutGeometryPreflight.Warning> found){
+        int n=0;for(StyleCutGeometryPreflight.Warning w:found){StyleCutGeometryPreflight.Category c=w.category;
+            if(c==StyleCutGeometryPreflight.Category.CONTACT||c==StyleCutGeometryPreflight.Category.INTERSECTION||c==StyleCutGeometryPreflight.Category.OVERLAP)n++;}
+        return n;
+    }
+    private static void windowedRepair(StyleKit.Result result,StyleKit.Layer layer,float minimumMm,float gapMm,
+                                       List<StyleCutGeometryPreflight.Warning> found,int current,long[] left){
+        VectorBooleanEngine.Backend b=VectorBooleanEngine.backend();
+        final float w=result.widthMm,h=result.heightMm,closeR=gapMm*.5f+.03f,openR=minimumMm*.5f+.03f;
+        final List<float[]> original=new ArrayList<>(layer.loops);
+        List<float[]> best=original;
+        Object clip=b.clipPath(new float[][]{{0,0,w,0,w,h,0,h}});
+        for(int round=0;round<3&&current>0;round++){
+            StyleKit.checkCancelled();
+            List<float[]> windows=ConfettiVectorRepair.windows(found,w,h,minimumMm,gapMm);
+            if(windows.isEmpty())break;
+            ArrayList<float[]> touched=new ArrayList<>(),untouched=new ArrayList<>();
+            CutRepairPartitions.splitNestingTrees(best,windows,8f*(closeR+openR)+.2f,touched,untouched);
+            if(touched.isEmpty())break;
+            long work=ConfettiVectorRepair.points(touched);
+            if(work>left[0])break;
+            left[0]-=work;
+            ArrayList<float[]> patched;
+            try{patched=b.localizedCondition(b.clipPath(touched.toArray(new float[0][])),clip,touched,windows,closeR,openR,.02f);}
+            catch(java.util.concurrent.CancellationException c){throw c;}catch(RuntimeException failed){break;}
+            if(patched==null)break;
+            ArrayList<float[]> candidate=new ArrayList<>(untouched);candidate.addAll(patched);
+            if(candidate.isEmpty()||!ConfettiVectorRepair.retainsCoverage(original,candidate,w,h,minimumMm))break;
+            List<StyleCutGeometryPreflight.Warning> next;
+            try{next=inspectLayer(result,candidate,minimumMm,gapMm,ConfettiVectorRepair.LIMIT);}catch(IllegalArgumentException bad){break;}
+            int count=ConfettiVectorRepair.count(next);
+            // Fewer findings in total, and never more contacts / crossings / overlaps.
+            if(count<0||count>=current||critical(next)>critical(found))break;
+            best=candidate;found=next;current=count;
+        }
+        if(best==original)return;
+        layer.loops.clear();layer.loops.addAll(best);
+    }
+    private static boolean repairBySeparatedGroups(StyleKit.Result result,StyleKit.Layer layer,float minimumMm,float gapMm){
         List<List<float[]>> groups=CutRepairPartitions.group(layer.loops,2f*Math.max(minimumMm,gapMm));
-        if(groups.size()<2||groups.size()>64)return;
+        if(groups.size()<2||groups.size()>64)return false;
         ArrayList<float[]> merged=new ArrayList<>(layer.loops.size());
-        int repairedGroups=0;
         try{
+            // M8 C2: decide feasibility BEFORE conditioning anything. Every early exit of the repair
+            // below leaves the layer unchanged, and these exits depend only on the inspection of each
+            // group and on the conditioner's deterministic budget. On Camo/Urban Camo one defective
+            // group per sheet exceeds the grid budget, so the old loop conditioned the groups before it
+            // (seconds per sheet) and then discarded everything. Same outcome, no wasted work.
+            ArrayList<List<StyleCutGeometryPreflight.Warning>> found=new ArrayList<>(groups.size());
+            int defective=0;
             for(List<float[]> group:groups){
                 StyleKit.checkCancelled();
                 List<StyleCutGeometryPreflight.Warning> findings=inspectLayer(result,group,minimumMm,gapMm,5000);
-                if(findings.isEmpty()){merged.addAll(group);continue;}
-                if(incomplete(findings)||++repairedGroups>8)return;
+                found.add(findings);
+                if(findings.isEmpty())continue;
+                if(incomplete(findings)||++defective>8)return false;
+                if(!CutGeometryConditioner.withinBudget(group,result.widthMm,result.heightMm,minimumMm,gapMm))return false;
+            }
+            if(defective==0)return false;
+            for(int i=0;i<groups.size();i++){
+                List<float[]> group=groups.get(i);
+                if(found.get(i).isEmpty()){merged.addAll(group);continue;}
+                StyleKit.checkCancelled();
                 ArrayList<float[]> fixed=CutGeometryConditioner.condition(group,result.widthMm,result.heightMm,minimumMm,gapMm);
-                if(!preservesArtwork(group,fixed))return;
+                if(!preservesArtwork(group,fixed))return false;
                 merged.addAll(fixed);
             }
-            if(repairedGroups==0||!preservesArtwork(layer.loops,merged)||
-                !inspectLayer(result,merged,minimumMm,gapMm,1).isEmpty())return;
-        }catch(CutGeometryConditioner.BudgetExceededException|IllegalArgumentException cannotRepair){return;}
-        layer.loops.clear();layer.loops.addAll(merged);
+            if(!preservesArtwork(layer.loops,merged)||
+                !inspectLayer(result,merged,minimumMm,gapMm,1).isEmpty())return false;
+        }catch(CutGeometryConditioner.BudgetExceededException|IllegalArgumentException cannotRepair){return false;}
+        layer.loops.clear();layer.loops.addAll(merged);return true;
     }
     /** Conditioning repairs local defects. If it would erase a quarter of the
      * vinyl, the style itself is too fine for the chosen cut settings; keep

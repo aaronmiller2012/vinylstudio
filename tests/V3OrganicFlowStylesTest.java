@@ -84,7 +84,7 @@ public final class V3OrganicFlowStylesTest {
         // Silk, Braided Flow, Chevron).
         int expectedThumbnailCount = StudioThumbnailRegistry.TOP_LEVEL_COUNT
                 + StudioThumbnailRegistry.TESSELLATION_COUNT;
-        ok(expectedThumbnailCount == 109,
+        ok(expectedThumbnailCount == 117,
                 "Unexpected thumbnail identity baseline: " + expectedThumbnailCount);
         ok(StudioThumbnailRegistry.allKeys().size() == expectedThumbnailCount,
                 "Missing or duplicate thumbnail identities");

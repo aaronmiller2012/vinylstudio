@@ -49,11 +49,12 @@ public final class StudioThumbnailRegistry {
         "art.marquetry", "art.fingerprint", "art.reduction_woodcut",
         "art.woven_ribbon", "art.woodgrain", "art.torn_collage"
     };
-    public static final int TOP_LEVEL_COUNT = 81, TESSELLATION_COUNT = 28;
+    public static final String[] MAZE={"maze.portrait","maze.organic","maze.hidden","maze.geometric","maze.contour","maze.voronoi","maze.vortex","maze.multilayer"};
+    public static final int TOP_LEVEL_COUNT = 89, TESSELLATION_COUNT = 28;
     private static final Set<String> KEYS;
     static {
         HashSet<String> keys = new HashSet<>();
-        for (String[] family : new String[][]{MULTILAYER, SHAPES, LINES, SINGLE, ART}) {
+        for (String[] family : new String[][]{MULTILAYER, SHAPES, LINES, SINGLE, ART, MAZE}) {
             for (String key : family) if (!keys.add(key)) throw new IllegalStateException("Duplicate thumbnail key: " + key);
         }
         for (int i=0; i<TessellationMotifEngine.PATTERN_SLOT_COUNT; ++i) {
@@ -87,6 +88,7 @@ public final class StudioThumbnailRegistry {
         }
     }
     public static String newStyle(int id) {
+        if(VinylStyleSuite.isMaze(id))return MAZE[id-VinylStyleSuite.PORTRAIT_MAZE];
         switch (id) {
             case VinylStyleSuite.LOW_POLY:return MULTILAYER[8];
             case VinylStyleSuite.GLASS:return MULTILAYER[9];

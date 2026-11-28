@@ -123,11 +123,13 @@ final class SpecialtyVectorCache {
         return p;
     }
     private static float nextPathNumber(String data,int[] pos,int end){
-        while(pos[0]<end && (Character.isWhitespace(data.charAt(pos[0]))||data.charAt(pos[0])==','))pos[0]++;
-        int from=pos[0];
-        while(pos[0]<end && "0123456789.+-eE".indexOf(data.charAt(pos[0]))>=0)pos[0]++;
-        if(from==pos[0])throw new IllegalArgumentException("Missing SVG curve coordinate");
-        float n=Float.parseFloat(data.substring(from,pos[0]));
+        int i=pos[0];
+        while(i<end){char c=data.charAt(i);if(c==','||Character.isWhitespace(c))i++;else break;}
+        int from=i;
+        while(i<end&&SvgNumber.tokenChar(data.charAt(i)))i++;
+        pos[0]=i;
+        if(from==i)throw new IllegalArgumentException("Missing SVG curve coordinate");
+        float n=SvgNumber.parse(data,from,i); // M7 P1: == Float.parseFloat, no substring
         if(!Float.isFinite(n))throw new IllegalArgumentException("Invalid SVG curve coordinate");
         return n;
     }
@@ -142,14 +144,14 @@ final class SpecialtyVectorCache {
             i++;
             while(i<end&&Character.isWhitespace(data.charAt(i)))i++;
             int xStart=i;
-            while(i<end&&"0123456789.+-eE".indexOf(data.charAt(i))>=0)i++;
+            while(i<end&&SvgNumber.tokenChar(data.charAt(i)))i++;
             if(xStart==i)throw new IllegalArgumentException("Missing contour X");
-            float x=Float.parseFloat(data.substring(xStart,i));
+            float x=SvgNumber.parse(data,xStart,i);
             while(i<end&&(Character.isWhitespace(data.charAt(i))||data.charAt(i)==','))i++;
             int yStart=i;
-            while(i<end&&"0123456789.+-eE".indexOf(data.charAt(i))>=0)i++;
+            while(i<end&&SvgNumber.tokenChar(data.charAt(i)))i++;
             if(yStart==i)throw new IllegalArgumentException("Missing contour Y");
-            float y=Float.parseFloat(data.substring(yStart,i));
+            float y=SvgNumber.parse(data,yStart,i);
             if(!Float.isFinite(x)||!Float.isFinite(y))throw new IllegalArgumentException("Invalid vector point");
             if(c=='M')p.moveTo(x,y);else p.lineTo(x,y);
         }

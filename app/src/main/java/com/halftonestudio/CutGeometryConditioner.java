@@ -36,11 +36,33 @@ final class CutGeometryConditioner {
     static final int GUIDED_ROUNDS=4;
     private static final float INF=Float.MAX_VALUE/4;
 
-    static ArrayList<float[]> condition(List<float[]> loops,float widthMm,float heightMm,float minMm,float gapMm){
-        if(loops==null||loops.isEmpty())return new ArrayList<>();
+    /** M8 C2: true when {@link #condition} on these inputs would NOT throw BudgetExceededException.
+     * Same bounds, same arithmetic, no allocation of masks; lets callers skip repair work whose
+     * result could never be used. */
+    static boolean withinBudget(List<float[]> loops,float widthMm,float heightMm,float minMm,float gapMm){
+        if(loops==null||loops.isEmpty())return true;
+        Frame f=frame(loops,widthMm,heightMm,minMm,gapMm);
+        if(f==null)return true;
+        if(f.grid==null)return false;
+        long visits=0;
+        for(float[] loop:loops){
+            int n=loop.length/2;
+            for(int k=0;k<n;k++){
+                float y0=loop[2*k+1]-f.oy,y1=loop[2*((k+1)%n)+1]-f.oy;
+                if(y0==y1)continue;
+                int a=Math.max(0,rowAbove(Math.min(y0,y1),f.grid.pitch)),b=Math.min(f.grid.height-1,rowBelow(Math.max(y0,y1),f.grid.pitch));
+                if(a>b)continue;
+                visits+=(long)b-a+1;
+                if(visits>MAX_EDGE_ROW_VISITS)return false;
+            }
+        }
+        return true;
+    }
+    /** Occupied-bounds frame and repair grid of a sheet; null when there is nothing to condition. */
+    private static final class Frame{final float ox,oy;final CutRepairGrid grid;Frame(float ox,float oy,CutRepairGrid g){this.ox=ox;this.oy=oy;grid=g;}}
+    private static Frame frame(List<float[]> loops,float widthMm,float heightMm,float minMm,float gapMm){
         if(!(widthMm>0&&heightMm>0&&minMm>0&&gapMm>0)||!Float.isFinite(widthMm)||!Float.isFinite(heightMm))
             throw new IllegalArgumentException("Invalid cut conditioning dimensions");
-        // Work only inside the sheet's occupied bounds (plus clearance).
         float lx=Float.POSITIVE_INFINITY,ly=lx,hx=Float.NEGATIVE_INFINITY,hy=hx;
         for(float[] loop:loops)for(int k=0;k+1<loop.length;k+=2){
             lx=Math.min(lx,loop[k]);hx=Math.max(hx,loop[k]);ly=Math.min(ly,loop[k+1]);hy=Math.max(hy,loop[k+1]);
@@ -48,14 +70,26 @@ final class CutGeometryConditioner {
         float pad=2f*Math.max(minMm,gapMm);
         final float ox=Math.max(0f,lx-pad),oy=Math.max(0f,ly-pad);
         final float spanX=Math.min(widthMm,hx+pad)-ox,spanY=Math.min(heightMm,hy+pad)-oy;
-        if(!(spanX>0&&spanY>0))return new ArrayList<>();
-        // Grid aligned to the cut minimum: a 7-pixel disk is exactly the
-        // minimum (+0.02 mm), so morphology neither keeps sub-minimum vinyl
-        // nor erodes features that already meet the limit.
-        final CutRepairGrid grid=CutRepairGrid.plan(spanX,spanY,minMm,gapMm,MAX_PIXELS);
+        if(!(spanX>0&&spanY>0))return null;
+        return new Frame(ox,oy,CutRepairGrid.plan(spanX,spanY,minMm,gapMm,MAX_PIXELS));
+    }
+
+    /** Number of rasterized conditioning runs (tests and VinylPerf diagnostics). */
+    static final java.util.concurrent.atomic.LongAdder RASTER_RUNS=new java.util.concurrent.atomic.LongAdder();
+    static ArrayList<float[]> condition(List<float[]> loops,float widthMm,float heightMm,float minMm,float gapMm){
+        if(loops==null||loops.isEmpty())return new ArrayList<>();
+        // Work only inside the sheet's occupied bounds (plus clearance). Grid aligned to the cut
+        // minimum: a 7-pixel disk is exactly the minimum (+0.02 mm), so morphology neither keeps
+        // sub-minimum vinyl nor erodes features that already meet the limit. Shared with
+        // withinBudget() so the budget prediction cannot drift from this computation.
+        final Frame frame=frame(loops,widthMm,heightMm,minMm,gapMm);
+        if(frame==null)return new ArrayList<>();
+        final float ox=frame.ox,oy=frame.oy;
+        final CutRepairGrid grid=frame.grid;
         if(grid==null)throw new BudgetExceededException("Physical repair grid exceeds bounded resolution; retain original for cut review");
         final int w=grid.width,h=grid.height;
         final float p=grid.pitch;
+        RASTER_RUNS.increment();
         ArrayList<float[]> local=new ArrayList<>(loops.size());
         for(float[] loop:loops){
             float[] q=loop.clone();
@@ -93,9 +127,8 @@ final class CutGeometryConditioner {
                 else vinyl[i]=true;
             }
             if(anyGrow){
-                float[] d=edt(grow,w,h);
-                float lim=disk(rg);
-                for(int i=0;i<vinyl.length;i++)if(vinyl[i]&&d[i]<=lim)vinyl[i]=false;
+                boolean[] near=within(grow,w,h,disk(rg));
+                for(int i=0;i<vinyl.length;i++)if(vinyl[i]&&near[i])vinyl[i]=false;
             }
             vinyl=open(vinyl,w,h,rv);
             StyleKit.checkCancelled();
@@ -130,9 +163,8 @@ final class CutGeometryConditioner {
                 spot[cy*w+cx]=true;erased=true;
             }
             if(!erased)break;
-            float[] fromSpot=edt(spot,w,h);
-            float lim=disk(eraseR);
-            for(int i=0;i<vinyl.length;i++)if(vinyl[i]&&fromSpot[i]<=lim)vinyl[i]=false;
+            boolean[] nearSpot=within(spot,w,h,disk(eraseR));
+            for(int i=0;i<vinyl.length;i++)if(vinyl[i]&&nearSpot[i])vinyl[i]=false;
             vinyl=open(vinyl,w,h,rv);
             dropSmallComponents(vinyl,w,h,(int)Math.ceil(1.3f*minMm/p),true);
             dropSmallComponents(vinyl,w,h,(int)Math.ceil(1.3f*gapMm/p),false);
@@ -216,11 +248,10 @@ final class CutGeometryConditioner {
     private static boolean splitPinches(boolean[] vinyl,int w,int h,int rv,int rg){
         boolean[] outside=new boolean[vinyl.length];
         for(int i=0;i<vinyl.length;i++)outside[i]=!vinyl[i];
-        float[] d=edt(outside,w,h);
-        float lim=disk(rv);
+        boolean[] nearOutside=within(outside,w,h,disk(rv));
         boolean[] core=new boolean[vinyl.length];
         boolean any=false;
-        for(int i=0;i<vinyl.length;i++)if(vinyl[i]&&d[i]>lim){core[i]=true;any=true;}
+        for(int i=0;i<vinyl.length;i++)if(vinyl[i]&&!nearOutside[i]){core[i]=true;any=true;}
         if(!any)return false;
         int[] comp=label8(core,w,h);
         int[] nearest=nearestSeed(core,w,h);
@@ -235,9 +266,8 @@ final class CutGeometryConditioner {
             }
         }
         if(!anySeam)return false;
-        float[] fromSeam=edt(seam,w,h);
-        float cut=disk(rg+1);
-        for(int i=0;i<vinyl.length;i++)if(vinyl[i]&&fromSeam[i]<=cut)vinyl[i]=false;
+        boolean[] nearSeam=within(seam,w,h,disk(rg+1));
+        for(int i=0;i<vinyl.length;i++)if(vinyl[i]&&nearSeam[i])vinyl[i]=false;
         return true;
     }
     /** 8-connected component ids (>=0) for true pixels, -1 elsewhere. */
@@ -369,31 +399,140 @@ final class CutGeometryConditioner {
         for(int i=0;i<set.length;i++){outside[i]=!set[i];any|=set[i];}
         if(!any)return set.clone();
         float lim=disk(r);
-        float[] d=edt(outside,w,h);
+        boolean[] nearOutside=within(outside,w,h,lim);
         boolean[] core=new boolean[set.length];
         boolean anyCore=false;
-        for(int i=0;i<set.length;i++)if(set[i]&&d[i]>lim){core[i]=true;anyCore=true;}
+        for(int i=0;i<set.length;i++)if(set[i]&&!nearOutside[i]){core[i]=true;anyCore=true;}
         if(!anyCore)return new boolean[set.length];
-        float[] e=edt(core,w,h);
+        boolean[] nearCore=within(core,w,h,lim);
         boolean[] out=new boolean[set.length];
-        for(int i=0;i<set.length;i++)out[i]=set[i]&&e[i]<=lim;
+        for(int i=0;i<set.length;i++)out[i]=set[i]&&nearCore[i];
         return out;
     }
-    /** Squared Euclidean distance (pixels) from each pixel to the nearest true pixel. */
+    /** Squared Euclidean distance (pixels) from each pixel to the nearest true pixel.
+     * M7: the column pass over a boolean seed is the squared distance to the nearest seed in
+     * the column; two row-order sweeps compute it exactly (same float values as the
+     * Felzenszwalb-Huttenlocher pass, see {@link #edtReference}) with contiguous memory
+     * access and no division, instead of a strided per-column lower envelope. */
     static float[] edt(boolean[] seed,int w,int h){
+        final float[] d=new float[w*h];
+        // Column bands are independent; each band is still swept in row order.
+        range(w,2L*h,(x0,x1)->{
+            int[] last=new int[x1-x0];
+            Arrays.fill(last,-1);
+            for(int y=0;y<h;y++){ // nearest seed at or above
+                if((y&63)==0)StyleKit.checkCancelled();
+                int row=y*w;
+                for(int x=x0;x<x1;x++){
+                    if(seed[row+x])last[x-x0]=y;
+                    int l=last[x-x0];
+                    if(l<0)d[row+x]=INF;else{float dq=y-l;d[row+x]=dq*dq;}
+                }
+            }
+            Arrays.fill(last,-1);
+            for(int y=h-1;y>=0;y--){ // nearest seed at or below, if closer
+                if((y&63)==0)StyleKit.checkCancelled();
+                int row=y*w;
+                for(int x=x0;x<x1;x++){
+                    if(seed[row+x])last[x-x0]=y;
+                    int l=last[x-x0];
+                    if(l>=0){float dq=l-y,below=dq*dq;if(below<d[row+x])d[row+x]=below;}
+                }
+            }
+        });
+        return rowPass(d,w,h);
+    }
+    /** Independent FH row transforms; rows are split across the geometry pool when enabled. */
+    private static float[] rowPass(float[] d,int w,int h){
+        range(h,8L*w,(y0,y1)->{
+            float[] f=new float[w],z=new float[w+1],out=new float[w];
+            int[] v=new int[w];
+            for(int y=y0;y<y1;y++){
+                if(((y-y0)&63)==0)StyleKit.checkCancelled();
+                System.arraycopy(d,y*w,f,0,w);
+                pass(f,w,v,z,out);
+                System.arraycopy(out,0,d,y*w,w);
+            }
+        });
+        return d;
+    }
+    /** M7 A/B switch (device benchmark): split independent rows/columns across the pool. */
+    static volatile boolean parallelPasses=false;
+    private static void range(int n,long work,ParallelGeometry.RangeBody body){
+        if(parallelPasses)ParallelGeometry.forRange(n,work,body);else body.run(0,n);
+    }
+    /**
+     * M7: {@code within(seed,..,lim)[i] == (edt(seed,..)[i] <= lim)} exactly, without the
+     * full transform. Squared pixel distances are integers, so the test is d &lt;= L with
+     * L=floor(lim): pixel p qualifies iff some q in its row has a vertical distance c(q) with
+     * c(q) &lt;= L and |p-q| &lt;= floor(sqrt(L-c(q))). A left and a right "reach" sweep
+     * answer that in O(w) per row; no envelope, no division, no float field.
+     */
+    static boolean[] within(boolean[] seed,int w,int h,float lim){
+        final boolean[] out=new boolean[w*h];
+        if(!(lim>=0))return out;
+        final int L=(int)Math.min(1_000_000,Math.floor(lim)),cap=L+1;
+        final int[] col=new int[w*h];
+        range(w,2L*h,(x0,x1)->{
+            int[] last=new int[x1-x0];
+            Arrays.fill(last,-1);
+            for(int y=0;y<h;y++){
+                if((y&63)==0)StyleKit.checkCancelled();
+                int row=y*w;
+                for(int x=x0;x<x1;x++){
+                    if(seed[row+x])last[x-x0]=y;
+                    int l=last[x-x0];
+                    col[row+x]=l<0?cap:(int)Math.min(cap,(long)(y-l)*(y-l));
+                }
+            }
+            Arrays.fill(last,-1);
+            for(int y=h-1;y>=0;y--){
+                if((y&63)==0)StyleKit.checkCancelled();
+                int row=y*w;
+                for(int x=x0;x<x1;x++){
+                    if(seed[row+x])last[x-x0]=y;
+                    int l=last[x-x0];
+                    if(l>=0){int below=(int)Math.min(cap,(long)(l-y)*(l-y));if(below<col[row+x])col[row+x]=below;}
+                }
+            }
+        });
+        final int[] reachOf=new int[cap+1];
+        for(int c=0;c<=cap;c++)reachOf[c]=c<=L?(int)Math.floor(Math.sqrt((double)(L-c))):-1;
+        for(int c=0;c<=L;c++){ // exact integer square root (guard against sqrt rounding)
+            int r=reachOf[c];while((long)(r+1)*(r+1)<=L-c)r++;while((long)r*r>L-c)r--;reachOf[c]=r;
+        }
+        range(h,3L*w,(y0,y1)->{
+            for(int y=y0;y<y1;y++){
+                if(((y-y0)&63)==0)StyleKit.checkCancelled();
+                int row=y*w;long reach=Long.MIN_VALUE;
+                for(int x=0;x<w;x++){
+                    int r=reachOf[col[row+x]];
+                    if(r>=0&&x+r>reach)reach=x+r;
+                    if(x<=reach)out[row+x]=true;
+                }
+                reach=Long.MAX_VALUE;
+                for(int x=w-1;x>=0;x--){
+                    int r=reachOf[col[row+x]];
+                    if(r>=0&&x-r<reach)reach=x-r;
+                    if(x>=reach)out[row+x]=true;
+                }
+            }
+        });
+        return out;
+    }
+    /** The pre-M7 transform (strided FH column pass); test reference for {@link #edt}. */
+    static float[] edtReference(boolean[] seed,int w,int h){
         float[] d=new float[w*h];
         for(int i=0;i<d.length;i++)d[i]=seed[i]?0:INF;
         int n=Math.max(w,h);
         float[] f=new float[n],z=new float[n+1],out=new float[n];
         int[] v=new int[n];
         for(int x=0;x<w;x++){
-            if((x&63)==0)StyleKit.checkCancelled();
             for(int y=0;y<h;y++)f[y]=d[y*w+x];
             pass(f,h,v,z,out);
             for(int y=0;y<h;y++)d[y*w+x]=out[y];
         }
         for(int y=0;y<h;y++){
-            if((y&63)==0)StyleKit.checkCancelled();
             System.arraycopy(d,y*w,f,0,w);
             pass(f,w,v,z,out);
             System.arraycopy(out,0,d,y*w,w);

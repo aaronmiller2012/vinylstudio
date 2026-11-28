@@ -5,21 +5,26 @@ import org.locationtech.jts.index.strtree.STRtree;
 import org.locationtech.jts.algorithm.construct.MaximumInscribedCircle;
 import org.locationtech.jts.operation.distance.IndexedFacetDistance;
 
-/** Advisory footprint checks, never repairs. Bounded independently of contour statistics. */
+/** Advisory footprint checks, never repairs. Bounded independently of contour statistics.
+ * M8: bounds are structural (points, components, examined pairs), never wall clock, so the
+ * report depends only on the footprint, not on device speed or load. Callers keep an outer
+ * cancellation/backstop guard that reports the whole analysis as unavailable. */
 final class FootprintClearance {
     private FootprintClearance() {}
     static String inspect(Geometry g,double width,double gap,Runnable guard){
         if(g.isEmpty())return "No filled footprint to inspect.\n";
         if(g.getNumPoints()>16000||g.getNumGeometries()>256)return "Local footprint checks not evaluated (complexity limit).\n";
+        // M8 / I1: polygon order, hole order, ring start and orientation decide pair roles in
+        // ParallelWidthCandidates, which reference locations are listed and which survive the
+        // text cap. Inspect a canonical copy so the report depends only on the footprint.
+        g=g.copy();g.normalize();
         int narrow=0,necks=0,pairs=0,examined=0,ringPairs=0,localPairs=0;
         StringBuilder locations=new StringBuilder();
-        long start=System.nanoTime();
         STRtree index=new STRtree();
         for(int i=0;i<g.getNumGeometries();i++)index.insert(g.getGeometryN(i).getEnvelopeInternal(),i);
         index.build();
         for(int i=0;i<g.getNumGeometries();i++){
             guard.run(); CancellationCheckpoint.check();
-            if(System.nanoTime()-start>750_000_000L)return "Local footprint checks incomplete (time budget); no complete result.\n";
             Geometry p=g.getGeometryN(i);
             if(width>0){
                 double tolerance=Math.max(.002,width/100);
@@ -36,12 +41,11 @@ final class FootprintClearance {
                     segments.build();
                     for(int k=0;k<cs.length-1;k++){
                         guard.run(); CancellationCheckpoint.check();
-                        if(System.nanoTime()-start>750_000_000L)return "Local footprint checks incomplete (local-width time budget); no complete result.\n";
                         Envelope e=new Envelope(cs[k],cs[k+1]);e.expandBy(width);
                         for(Object item:segments.query(e)){
                             int j=(Integer)item;
                             if(j<=k+1 || (k==0&&j==cs.length-2))continue;
-                            if(++examined>4096||System.nanoTime()-start>750_000_000L)return "Local footprint checks incomplete (local-width pair/time budget); no complete result.\n";
+                            if(++examined>4096)return "Local footprint checks incomplete (local-width pair budget); no complete result.\n";
                             double[] v=ParallelWidthCandidates.between(cs[k].x,cs[k].y,cs[k+1].x,cs[k+1].y,cs[j].x,cs[j].y,cs[j+1].x,cs[j+1].y,width);
                             if(v!=null && poly.covers(poly.getFactory().createLineString(new Coordinate[]{new Coordinate(v[0],v[1]),new Coordinate(v[2],v[3])}))){
                                 localPairs++;location(locations,"Opposing boundary width candidate",new Coordinate((v[0]+v[2])/2,(v[1]+v[3])/2));
@@ -56,7 +60,7 @@ final class FootprintClearance {
                     int rings=poly.getNumInteriorRing()+1;
                     for(int a=0;a<rings;a++)for(int b=a+1;b<rings;b++){
                         guard.run(); CancellationCheckpoint.check();
-                        if(++examined>4096||System.nanoTime()-start>750_000_000L)return "Local footprint checks incomplete (ring/time budget); no complete result.\n";
+                        if(++examined>4096)return "Local footprint checks incomplete (ring pair budget); no complete result.\n";
                         Geometry first=a==0?poly.getExteriorRing():poly.getInteriorRingN(a-1);
                         Geometry second=poly.getInteriorRingN(b-1);
                         if(first.getEnvelopeInternal().distance(second.getEnvelopeInternal())>=width)continue;
@@ -75,7 +79,7 @@ final class FootprintClearance {
                 Envelope env=new Envelope(p.getEnvelopeInternal());env.expandBy(gap);
                 for(Object item:index.query(env)){int j=(Integer)item;if(j<=i)continue;
                     guard.run(); CancellationCheckpoint.check();
-                    if(++examined>4096||System.nanoTime()-start>750_000_000L)return "Local footprint checks incomplete (pair/time budget); no complete result.\n";
+                    if(++examined>4096)return "Local footprint checks incomplete (pair budget); no complete result.\n";
                     IndexedFacetDistance d=new IndexedFacetDistance(p);
                     if(d.distance(g.getGeometryN(j))+.003<gap){pairs++; location(locations,"Separate footprint gap",d.nearestPoints(g.getGeometryN(j))[0]);}
                 }

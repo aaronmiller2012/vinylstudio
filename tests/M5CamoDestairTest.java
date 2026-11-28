@@ -95,7 +95,9 @@ public final class M5CamoDestairTest {
             for(int l=1;l<on.layers.size();l++){
                 List<StyleCutGeometryPreflight.Warning> wo=one(off,l,gap),wn=one(on,l,gap);
                 for(StyleCutGeometryPreflight.Warning x:wn){boolean known=false;
-                    for(StyleCutGeometryPreflight.Warning y:wo)if(Math.abs(x.xMm-y.xMm)<=.8f&&Math.abs(x.yMm-y.yMm)<=.8f){known=true;break;}
+                    // Match on the clearance midpoint (the defect itself), not the marker anchor:
+                    // the anchor sits on whichever side of a neck the inspector reports (M8 I1).
+                    for(StyleCutGeometryPreflight.Warning y:wo)if(Math.abs(x.midXMm-y.midXMm)<=.8f&&Math.abs(x.midYMm-y.midYMm)<=.8f){known=true;break;}
                     if(!known)fresh++;}
             }
             check(fresh==0,tag+" no cut-inspector finding away from an existing one ("+fresh+")");

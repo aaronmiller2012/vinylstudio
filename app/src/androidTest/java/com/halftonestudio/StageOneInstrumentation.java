@@ -37,10 +37,29 @@ public final class StageOneInstrumentation extends Instrumentation {
     private interface Case { void run() throws Exception; }
     private static void check(boolean value,String message){if(!value)throw new AssertionError(message);}
 
-    @Override public void onCreate(Bundle args) {super.onCreate(args);start();}
+    private Bundle arguments;
+    @Override public void onCreate(Bundle args) {super.onCreate(args);arguments=args==null?new Bundle():args;start();}
 
     @Override public void onStart() {
         super.onStart();
+        // M7: `-e vinylBench <styles>` runs the on-device benchmark instead of the suite.
+        String scenario=arguments.getString("vinylScenario");
+        if(scenario!=null){
+            Bundle r;
+            try{
+                DeviceRegression d=new DeviceRegression(this);
+                Bundle expect=new Bundle();expect.putString("tool",arguments.getString("expectTool"));expect.putString("style",arguments.getString("expectStyle"));
+                r="b9set".equals(scenario)?d.b9set():"b9check".equals(scenario)?d.b9check(expect):null;
+                if(r==null){r=new Bundle();r.putString("stage1","FAIL: unknown scenario "+scenario);}
+            }catch(Throwable t){android.util.Log.e("VinylDeviceTest",scenario,t);r=new Bundle();r.putString("stage1","FAIL: "+t);}
+            finish(r.getString("stage1","").startsWith("PASS")?0:-1,r);
+            return;
+        }
+        if(arguments.getString("vinylBench")!=null||arguments.getString("startupProbe")!=null){
+            Bundle bench=new DeviceBench(this,arguments).run();
+            finish(bench.getString("stage1","").startsWith("PASS")?0:-1,bench);
+            return;
+        }
         Bundle result=new Bundle();
         Map<String,Case> cases=new LinkedHashMap<>();
         cases.put("launch_and_metrics",this::launchAndMetrics);
@@ -57,6 +76,14 @@ public final class StageOneInstrumentation extends Instrumentation {
         cases.put("new_project_resets_per_style_memory_d19",this::newProjectResetsStyleMemory);
         cases.put("undo_keeps_workspace_and_layer_keeps_zoom",this::undoKeepsWorkspaceAndZoom);
         cases.put("project_round_trip_prismatic_and_mat_m5",this::projectRoundTripM5);
+        // M7 regressions mutate the editor, so they only run in the isolated perf sandbox.
+        DeviceRegression m7=new DeviceRegression(this);
+        if(m7.sandboxed()){
+            Map<String,DeviceRegression.StageCase> extra=new LinkedHashMap<>();m7.inProcess(extra);
+            for(Map.Entry<String,DeviceRegression.StageCase> e:extra.entrySet()){DeviceRegression.StageCase c=e.getValue();cases.put(e.getKey(),c::run);}
+        }
+        String only=arguments.getString("only");
+        if(only!=null)cases.keySet().retainAll(java.util.Arrays.asList(only.split(",")));
         int failed=0;
         for(Map.Entry<String,Case> c:cases.entrySet()){
             String verdict;
@@ -298,7 +325,7 @@ public final class StageOneInstrumentation extends Instrumentation {
         boolean writeRejected=false;
         try{resolver.openOutputStream(uri).close();}catch(SecurityException|IOException|IllegalArgumentException expected){writeRejected=true;}
         check(writeRejected,"provider must be read-only");
-        Uri escape=new Uri.Builder().scheme("content").authority(SharedExportProvider.AUTHORITY).appendPath("..").appendPath("x").build();
+        Uri escape=new Uri.Builder().scheme("content").authority(SharedExportProvider.authority(app())).appendPath("..").appendPath("x").build();
         boolean escapeRejected=false;
         try{resolver.openInputStream(escape).close();}catch(IOException|SecurityException|IllegalArgumentException|NullPointerException expected){escapeRejected=true;}
         check(escapeRejected,"path escape must be rejected");

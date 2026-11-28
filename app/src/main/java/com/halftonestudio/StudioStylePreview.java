@@ -24,6 +24,7 @@ public final class StudioStylePreview extends View {
     private final Path path=new Path();
     private final RectF scratchBounds=new RectF();
     private final String key;
+    private final Path mazeThumb;
     private final int tessellation;
     private final List<float[]> cells;
     private final List<float[]> tessSampleA,tessSampleB;
@@ -34,6 +35,7 @@ public final class StudioStylePreview extends View {
         if(!StudioThumbnailRegistry.isKnown(key))
             throw new IllegalArgumentException("Unregistered style thumbnail: "+key);
         tessellation=StudioThumbnailRegistry.tessellationVariant(key);
+        mazeThumb=key.startsWith("maze.")?makeMazeThumb(key):null;
         BG=StudioThumbnailPalette.background(key);
         DARK=StudioThumbnailPalette.outline(key);
         C=StudioThumbnailPalette.colors(key);
@@ -734,12 +736,22 @@ public final class StudioStylePreview extends View {
             default:break;
         }
     }
+    private static Path makeMazeThumb(String key){
+        int mode=java.util.Arrays.asList(StudioThumbnailRegistry.MAZE).indexOf(key);
+        int[] px=new int[20*12];for(int y=0;y<12;y++)for(int x=0;x<20;x++){
+            int v=Math.max(12,Math.min(245,(int)(250-230*Math.exp(-((x-10)*(x-10)+(y-6)*(y-6)*2)/24.0))));px[y*20+x]=0xff000000|v*0x10101;
+        }
+        PerfectPortraitMaze.Options o=new PerfectPortraitMaze.Options();o.mode=PerfectPortraitMaze.Mode.values()[mode];o.widthMm=100;o.detail=0;
+        PerfectPortraitMaze.Result r=PerfectPortraitMaze.generate(px,20,12,null,o);Path p=new Path();p.setFillType(Path.FillType.EVEN_ODD);
+        for(float[] loop:r.wallLoops()){p.moveTo(loop[0],loop[1]);for(int i=2;i<loop.length;i+=2)p.lineTo(loop[i],loop[i+1]);p.close();}return p;
+    }
     @Override protected void onDraw(Canvas output){
         super.onDraw(output);
         if(getWidth()==0||getHeight()==0)return;
         output.save();output.scale(getWidth()/100f,getHeight()/60f);
         output.clipRect(0,0,100,60);rect(output,0,0,100,60,BG);
-        if(tessellation>=0)drawTiling(output,tessellation);
+        if(mazeThumb!=null){color(DARK);output.drawPath(mazeThumb,p);}
+        else if(tessellation>=0)drawTiling(output,tessellation);
         else if(key.startsWith("multilayer.")){
             for(int i=0;i<StudioThumbnailRegistry.MULTILAYER.length;i++)
                 if(key.equals(StudioThumbnailRegistry.MULTILAYER[i])){

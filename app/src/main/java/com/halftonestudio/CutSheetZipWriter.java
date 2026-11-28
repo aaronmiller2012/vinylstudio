@@ -197,8 +197,8 @@ final class CutSheetZipWriter {
             putText("NOT-CUT-QUALIFIED.txt",
                 "WARNING: CUT GEOMETRY HAS NOT BEEN QUALIFIED.\n"+
                 "Some contours were NOT FULLY INSPECTED, underwidth, or contacted other cuts.\n"+
-                "This ZIP was exported for inspection after cut-safety warnings\n"+
-                "cut-safety checks. Do not manufacture from it until contours,\n"+
+                "This ZIP was exported for inspection after its cut-safety warnings\n"+
+                "were explicitly reviewed. Do not manufacture from it until contours,\n"+
                 "dimensions, minimum clearances and registration have been\n"+
                 "independently verified. See cut-sheet-safety.csv.\n");
         if(isDxf()){

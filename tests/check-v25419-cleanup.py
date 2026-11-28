@@ -14,7 +14,7 @@ assert 'if(json.optBoolean("dotToDotPortrait",false)){' in s, 'legacy portrait f
 assert 'if(ContinuousLineModes.curveFamily(curve)<0)' in s, 'curve safety gate missing'
 assert 'for(int i=0;i<cache.fills.length;i++)' in s, 'new style preview missing'
 assert 'if(maze!=null)' in s, 'continuous style preview missing'
-assert '"VinylStudio-specialty-cut-layers.zip"' in s, 'normal export filename missing'
+assert 'ExportFileNames.cutZip(projectLabel,label)' in s, 'normal export filename missing'  # M7 B5: style-named exports (behavior: M7DevicePerfTest b5)
 assert 'putZip(zip,"cut-safety-review.csv"' in s or 'cut-safety-review.csv' in s
 assert 'android.useAndroidX=true' in Path('gradle.properties').read_text().splitlines(), 'AndroidX must remain enabled for MediaPipe Tasks Vision runtime dependencies'
 meta=json.loads(Path('tests/release-info.json').read_text())

@@ -33,6 +33,7 @@ printf '\n===== LATEST HOST TESTS AND PLAY POLICY CHECKS =====\n'
 python3 tests/check-rc115-play.py
 # The Play bundle must pass the current development release's new geometry gate,
 # not only the inherited Beta4/RC173 baseline checks.
+bash tests/run-v3-portrait-maze-gate.sh
 bash tests/run-v3-product555-gate.sh
 bash tests/run-v3-product554-gate.sh
 bash tests/run-v3-product553-gate.sh
@@ -64,6 +65,8 @@ bash tests/run-v3-milestone-a1-gate.sh
 bash tests/run-v3-milestone-a2-gate.sh
 bash tests/run-v3-milestone-a3-b1-gate.sh
 # >>> synced from tests/gates.manifest by scripts/sync-gates.py (do not edit by hand)
+bash tests/run-v3-m8-geometry-gate.sh
+bash tests/run-v3-m7-device-perf-gate.sh
 bash tests/run-v3-m6-completion-gate.sh
 bash tests/run-v3-m6-refinement-gate.sh
 bash tests/run-v3-m6-confetti-gate.sh
@@ -151,7 +154,7 @@ if grep -Eq '^base/lib/[^/]+/[^/]+\.so$' <<< "$BUNDLE_ENTRIES"; then
   [[ -n "${BUNDLETOOL_JAR:-}" ]] || fail 'Native libraries present; run bundletool and verify 16 KB page compatibility before publishing'
   echo 'WARNING: Bundle contains native libraries; 16 KB ELF segment alignment still needs independent verification.' >&2
 fi
-DEST="${VINYL_PLAY_AAB_OUTPUT:-$HOME/Downloads/VinylStudio-v3.5.4-Play565.aab}"
+DEST="${VINYL_PLAY_AAB_OUTPUT:-$HOME/Downloads/VinylStudio-v3.7.0-Play569.aab}"
 MAP_DEST="${DEST%.aab}-mapping.txt"
 mkdir -p -- "$(dirname -- "$DEST")"
 STAGED="$(mktemp "$(dirname -- "$DEST")/.vinyl-play-aab.XXXXXXXX")"

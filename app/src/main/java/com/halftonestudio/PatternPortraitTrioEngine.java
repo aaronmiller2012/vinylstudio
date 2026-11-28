@@ -41,6 +41,8 @@ public final class PatternPortraitTrioEngine {
         final boolean[][] ink;
         private final VectorBooleanEngine.Session vector;
         private boolean conditionConfetti;
+        /** M8 P4: Chainmail sheets use the local micro-fragment cleanup (measured and parity-verified). */
+        private boolean localCleanup;
         private final float minCut,gap;
         boolean vectorEnabled(){return vector!=null;}
         boolean vectorSlot(int slot){return vector!=null&&slot>0;}
@@ -139,12 +141,16 @@ public final class PatternPortraitTrioEngine {
             }
         }
         private ArrayList<float[]> finishSheet(int slot){
-            return conditionConfetti?vector.finishConfetti(slot,src.widthMm,src.heightMm,minCut,gap):vector.finish(slot,src.widthMm,src.heightMm);
+            return conditionConfetti?vector.finishConfetti(slot,src.widthMm,src.heightMm,minCut,gap):
+                localCleanup?vector.finishLocal(slot,src.widthMm,src.heightMm):vector.finish(slot,src.widthMm,src.heightMm);
         }
         /** Independent physical sheets share only the immutable clip; union them concurrently. */
         private void finishVectorSheets(java.util.List<Integer> slots,java.util.List<StyleKit.Layer> layers){
             if(slots.isEmpty())return;
-            if(conditionConfetti||slots.size()==1||!ParallelGeometry.enabled()){
+            // M7 P5: the shared sheet-concurrency policy (sequential sheets on phone heaps;
+            // each sheet's union tree may still run in parallel).
+            if(conditionConfetti||slots.size()==1||!ParallelGeometry.enabled()||
+               !ParallelGeometry.allowConcurrentSheets(vector.inputPoints(),src.widthMm,Runtime.getRuntime().maxMemory())){
                 for(int i=0;i<slots.size();i++)layers.get(i).loops.addAll(finishSheet(slots.get(i)));
                 return;
             }
@@ -264,6 +270,7 @@ public final class PatternPortraitTrioEngine {
         // Only auto-generated palettes are sorted into base -> upper light tones.
         Surface surface=new Surface(source,slots,o.minCutMm,o.gapMm,o.draft,o.kind!=SPIDER_WEB);
         surface.conditionConfetti=repairConfetti&&o.kind==CONFETTI&&o.detail>25;
+        surface.localCleanup=o.kind==CHAINMAIL;
         int n=o.kind==CONFETTI?FallenConfettiEngine.render(surface,o,colors):o.kind==CHAINMAIL?
             InterlockingChainmailEngine.render(surface,o,colors):spiderWeb(surface,o);
         StyleKit.Result result=surface.finish(colors,

@@ -3,7 +3,10 @@ import xml.etree.ElementTree as ET
 p=Path('app/src/main/java/com/halftonestudio')
 g=(p/'CutGeometryConditioner.java').read_text();s=(p/'VinylStyleSuite.java').read_text();u=(p/'StudioActivity.java').read_text();f=(p/'StudioProductFlows.java').read_text()
 assert 'CutRepairGrid.plan(spanX,spanY,minMm,gapMm,MAX_PIXELS)' in g and 'if(grid==null)throw new BudgetExceededException' in g
-assert s.count('repairBySeparatedGroups(result,layer,minimumMm,gapMm);return;')==2
+# M8: both over-budget call sites still fall back to grouped repair; the organic one also defers
+# an unrepaired sheet to the capped windowed repair. Behaviour: M8RepairFeasibilityTest (3, 3b).
+assert s.count('repairBySeparatedGroups(result,layer,minimumMm,gapMm);return;')==1
+assert s.count('if(!repairBySeparatedGroups(result,layer,minimumMm,gapMm)&&deferred!=null&&!local)deferred.add(layer);')==1
 assert 'CutRepairPartitions.group' in s and 'CutRepairGrid.openingRadius(minMm,p)' in g
 assert 'SharedExportFiles.extractCutShare' in f and f.index('if(cutShare.reviewOnly())')<f.index('for(File sheet:cutShare.sheets)')
 assert 'shareReviewZip(written)' in f and 'reportSummary(cutShare.matNote)' in f

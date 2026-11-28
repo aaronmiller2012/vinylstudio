@@ -268,43 +268,16 @@ public final class OrganicFlowPortraitEngine {
         // Two reusable buffers for all color sheets, and one disk kernel per
         // radius. The four exact binary morphology passes are unchanged.
         // No shared/static caches: concurrent draft/final renders stay isolated.
-        final DiskKernel closeKernel=new DiskKernel(close,orthogonal),openKernel=new DiskKernel(open,orthogonal);
         final boolean[] a=new boolean[w*h],b=new boolean[w*h];
         for(int l=1;l<surface.ink.length;l++){
             StyleKit.checkCancelled();
             final boolean[] mask=surface.ink[l];
-            morphInto(mask,a,w,h,closeKernel,true);
-            morphInto(a,b,w,h,closeKernel,false);
-            morphInto(b,a,w,h,openKernel,false);
-            morphInto(a,b,w,h,openKernel,true);
+            // M7: exact linear-time morphology (identical masks; see BinaryMorphology).
+            BinaryMorphology.apply(mask,a,w,h,close,orthogonal,true);
+            BinaryMorphology.apply(a,b,w,h,close,orthogonal,false);
+            BinaryMorphology.apply(b,a,w,h,open,orthogonal,false);
+            BinaryMorphology.apply(a,b,w,h,open,orthogonal,true);
             for(int i=0;i<mask.length;i++)mask[i]=b[i]&&surface.valid[i];
-        }
-    }
-    private static final class DiskKernel {
-        final int[] dx,dy;
-        DiskKernel(int radius,boolean orthogonal){
-            int count=0;
-            for(int y=-radius;y<=radius;y++)for(int x=-radius;x<=radius;x++)
-                if(orthogonal||x*x+y*y<=radius*radius)count++;
-            dx=new int[count];dy=new int[count];int n=0;
-            for(int y=-radius;y<=radius;y++)for(int x=-radius;x<=radius;x++)
-                if(orthogonal||x*x+y*y<=radius*radius){dx[n]=x;dy[n]=y;n++;}
-        }
-    }
-    private static void morphInto(boolean[] input,boolean[] output,int w,int h,
-                                  DiskKernel kernel,boolean dilation){
-        for(int y=0;y<h;y++){
-            if((y&31)==0)StyleKit.checkCancelled();
-            for(int x=0;x<w;x++){
-                boolean value=!dilation;
-                for(int k=0;k<kernel.dx.length;k++){
-                    int xx=x+kernel.dx[k], yy=y+kernel.dy[k];
-                    boolean inside=xx>=0&&xx<w&&yy>=0&&yy<h&&input[yy*w+xx];
-                    if(dilation&&inside){value=true;break;}
-                    if(!dilation&&!inside){value=false;break;}
-                }
-                output[y*w+x]=value;
-            }
         }
     }
     /**

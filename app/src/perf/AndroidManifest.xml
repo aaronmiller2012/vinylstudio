@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Internal perf/qualification build only (applicationId com.halftonestudio.perf):
+     lets adb-shell profilers (simpleperf, Perfetto, dumpsys meminfo/gfxinfo) attach to
+     a non-debuggable process, and gives the share provider a non-conflicting authority. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <profileable android:shell="true"/>
+        <provider android:name=".SharedExportProvider"
+            android:authorities="com.halftonestudio.perf.sharedexports"
+            tools:replace="android:authorities"/>
+    </application>
+</manifest>

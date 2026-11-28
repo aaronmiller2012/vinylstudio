@@ -2,6 +2,18 @@
 
 Detailed per-build notes, newest first. Some referenced internal reports are not part of the public repository.
 
+## Build 569 (3.7.0) — M8 geometry and manufacturing candidate
+
+Integrates the portrait maze family (builds 567–568) with the M7 device-engineering line and the M8
+geometry work: deterministic cut inspection, manufacturable Confetti placement (about 95% fewer cut
+findings at 8–11 in), cut-ready repair without wasted work, faster Chainmail and Confetti, artwork kept
+across display changes, and an on-device R8 qualification build. See `docs/engineering/M8-569.md`.
+Host-gated and measured on an Android tablet; not yet qualified in cutter software or on a physical cut.
+
+## M7 device-engineering candidate — versionCode 566 (3.6.0)
+
+First release measured on a real Android device (Galaxy Tab A SM-T510, non-debuggable AOT build): exact faster cut-ready conditioning and mask morphology (byte-identical output), heap-safe within-sheet parallel geometry, no re-render on workspace switches, 12 device-found UI/state defects fixed with on-device regressions. See `docs/engineering/M7-566-device.md`. Physical cut and Design Space qualification still pending.
+
 ## M6 consolidated qualification candidate — versionCode 565 (3.5.4)
 
 Warning-centred local Confetti repair, lower-allocation clearance inspection, bounded Prismatic sheet scheduling, exact strand optimization. See `docs/engineering/M6-565-completion.md`. Full production and device qualification pending.
@@ -264,7 +276,7 @@ host gates include the new swatch tests. Retired styles remain retired.
 
 ## Render speed audit — versionCode 513
 
-Reviewed and integrated as an Android development candidate:
+Based on Claude render code.zip, reviewed and integrated as an Android development candidate:
 parallel independent color layers (bounded helper queue), interrupt-aware task cleanup,
 coalesced luminance-plane cache protected against duplicate computation and invalidation races,
 loop-local cancellation checkpoints, and normal-priority render lanes. Geometry algorithms
@@ -462,6 +474,24 @@ This is **not** a rewrite of the cut engines or a promise of crash-proof autosav
 - Added two-layer SVG and DXF calibration archives, 100 mm reference artboard, measured registration mark spacing and central shapes. Registration marks are physical alignment artwork, **not** optical print-and-cut marks.
 - Added `scripts/QUALIFY_ANDROID_DEVICE.sh`, a **read-only** ADB diagnostic collector and manual API 30–36 and low-memory test checklist. Neither Android build nor hardware qualification has been executed in this container.
 
+## Build and test
+
+```bash
+bash tests/run-v3-host-gate.sh
+bash BUILD_ON_NAS.sh
+```
+
+On the NAS, `BUILD_ON_NAS.sh` compiles Android sources, runs `testDebugUnitTest`, `lintDebug`, and `assembleDebug`, and publishes the verified debug APK only on success. It requires Android SDK API 36 and Java 17+. When `VINYL_QUALIFY_RELEASE=1`, it also requires a real `VINYL_PRIVACY_URL` and executes release unit tests, lint and R8 assembly. The separate Play AAB script additionally checks signing and fetches the public policy page.
+
+**Phone workflow:** unzip `VinylStudio-V3-Beta25-SnipMat-TransferKit.zip` into Termux Downloads, then run:
+
+```bash
+cd ~/storage/downloads
+bash VinylStudio-V3-TransferKit/VERIFY_PACKAGE.sh
+bash VinylStudio-V3-TransferKit/PHONE_BUILD_AND_RECEIVE.sh
+```
+
+If the NAS succeeds but the APK is not received automatically, use `PHONE_RECEIVE_ONLY.sh` **after verifying NAS success**.
 
 ## Release qualification required
 

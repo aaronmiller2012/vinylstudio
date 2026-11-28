@@ -42,6 +42,7 @@ public final class StyleKit {
         public final ArrayList<Layer> layers = new ArrayList<>();
         public int paperArgb = 0xffffffff;
         public String summary = "";
+        public PerfectPortraitMaze.Result maze; // verified puzzle topology
         public Result(float widthMm, float heightMm) { this.widthMm = widthMm; this.heightMm = heightMm; }
         public int totalPoints() { int n = 0; for (Layer l : layers) n += l.pointCount(); return n; }
     }

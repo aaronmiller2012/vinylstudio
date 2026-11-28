@@ -148,7 +148,13 @@ jobs:
         run: bash tests/run-v3-fix13-postsnip-vectors-gate.sh
       - name: Current release consistency and fail-closed archive tests
         run: bash tests/run-v3-release-hardening-gate.sh
+      - name: Gate run-v3-portrait-maze-gate
+        run: bash tests/run-v3-portrait-maze-gate.sh
       # >>> synced from tests/gates.manifest by scripts/sync-gates.py (do not edit by hand)
+      - name: Gate run-v3-m8-geometry-gate
+        run: bash tests/run-v3-m8-geometry-gate.sh
+      - name: Gate run-v3-m7-device-perf-gate
+        run: bash tests/run-v3-m7-device-perf-gate.sh
       - name: Gate run-v3-m6-completion-gate
         run: bash tests/run-v3-m6-completion-gate.sh
       - name: Gate run-v3-m6-refinement-gate
@@ -231,7 +237,7 @@ jobs:
         if: ${{ vars.VINYL_PRIVACY_URL != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: vinylstudio-v3-code565-r8-mapping
+          name: vinylstudio-v3-code569-r8-mapping
           path: app/build/outputs/mapping/release/mapping.txt
           if-no-files-found: error
           retention-days: 90

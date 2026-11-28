@@ -4,7 +4,7 @@ package com.halftonestudio;
 public final class NewStyleColorSlots {
     private NewStyleColorSlots() {}
     public static boolean multi(int style) {
-        return style == VinylStyleSuite.LOW_POLY || style == VinylStyleSuite.GLASS ||
+        return style == VinylStyleSuite.MULTILAYER_MAZE || style == VinylStyleSuite.LOW_POLY || style == VinylStyleSuite.GLASS ||
             style == VinylStyleSuite.TEXT || style == VinylStyleSuite.TOPOGRAPHIC ||
             style == VinylStyleSuite.TESSELLATION_MOTIF ||
             style == VinylStyleSuite.MARQUETRY || style == VinylStyleSuite.REDUCTION_WOODCUT ||
@@ -15,6 +15,7 @@ public final class NewStyleColorSlots {
             VinylStyleSuite.isCraft(style);
     }
     public static int slotCount(int style, int variant, int requested) {
+        if(VinylStyleSuite.isMaze(style))return style==VinylStyleSuite.MULTILAYER_MAZE?2:1;
         if (style == VinylStyleSuite.LINOCUT && variant != 0) return 2;
         if (style == VinylStyleSuite.BANKNOTE &&
                 (variant==BanknoteEngravingEngine.CROSS_ETCH ||
@@ -27,11 +28,13 @@ public final class NewStyleColorSlots {
         return Math.max(style == VinylStyleSuite.GLASS ? 3 : 2, Math.min(8, requested));
     }
     public static int minimumSelectable(int style) {
+        if(VinylStyleSuite.isMaze(style))return style==VinylStyleSuite.MULTILAYER_MAZE?2:1;
         if (style==VinylStyleSuite.POP_PANELS) return 4;
         if (style==VinylStyleSuite.GLASS) return 3;
         return multi(style)?2:1;
     }
     public static int maximumSelectable(int style) {
+        if(VinylStyleSuite.isMaze(style))return style==VinylStyleSuite.MULTILAYER_MAZE?2:1;
         if (style==VinylStyleSuite.POP_PANELS) return 4;
         if (style==VinylStyleSuite.POSTER_STENCIL) return 9;
         if (style==VinylStyleSuite.WOVEN_RIBBON) return 4;

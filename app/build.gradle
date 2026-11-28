@@ -4,7 +4,7 @@ plugins { id 'com.android.application' }
 // Debug/host builds remain usable without publishing a placeholder URL.
 def vinylPrivacyUrl = (System.getenv('VINYL_PRIVACY_URL') ?: '').trim()
 android { namespace 'com.halftonestudio'; compileSdk 36
-    defaultConfig { applicationId 'com.halftonestudio'; minSdk 26; targetSdk 36; testInstrumentationRunner 'com.halftonestudio.StageOneInstrumentation'; versionCode 565; versionName '3.5.4'; resValue 'string', 'privacy_policy_url', vinylPrivacyUrl }
+    defaultConfig { applicationId 'com.halftonestudio'; minSdk 26; targetSdk 36; testInstrumentationRunner 'com.halftonestudio.StageOneInstrumentation'; versionCode 569; versionName '3.7.0'; resValue 'string', 'privacy_policy_url', vinylPrivacyUrl }
     // Optional production signing only. No secret is stored in this source archive.
     signingConfigs {
         if (System.getenv('VINYL_RELEASE_KEYSTORE') && System.getenv('VINYL_RELEASE_ALIAS') &&
@@ -18,20 +18,48 @@ android { namespace 'com.halftonestudio'; compileSdk 36
         }
     }
     buildTypes {
+        // Internal qualification build: same code and resources as debug, but
+        // non-debuggable so ART AOT-compiles it, and <profileable shell> (see
+        // src/perf/AndroidManifest.xml) so simpleperf/Perfetto can attach.
+        // Debug-signed; never
+        // distributed. Release privacy/R8 requirements are untouched.
+        perf {
+            initWith debug
+            debuggable false
+            // Separate sandbox: qualification runs never touch the user's projects.
+            applicationIdSuffix '.perf'
+            versionNameSuffix '-perf'
+            signingConfig signingConfigs.debug
+            matchingFallbacks = ['debug']
+        }
         release {
             if (signingConfigs.findByName('production') != null) signingConfig signingConfigs.production
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+        // M8: internal R8 qualification build. Exactly the release shrinking/obfuscation
+        // (initWith release: minify, shrinkResources, same ProGuard files), debug-signed,
+        // non-debuggable, own sandbox (.r8) so it never touches the user's app. Not a
+        // release: the release privacy gate and signing are untouched. Never distributed.
+        r8qual {
+            initWith release
+            debuggable false
+            applicationIdSuffix '.r8'
+            versionNameSuffix '-r8'
+            signingConfig signingConfigs.debug
+            matchingFallbacks = ['release']
+        }
     }
+    // `-PvinylTestBuildType=perf` builds the androidTest APK against the perf variant.
+    testBuildType = providers.gradleProperty('vinylTestBuildType').getOrElse('debug')
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
 
 // Host regression runs explicitly via BUILD_ON_NAS.sh, or opt-in Gradle flag.
 tasks.register('hostRegression', Exec) {
     workingDir rootProject.projectDir
-    commandLine 'bash', '-c', 'bash tests/run-v3-m6-completion-gate.sh && bash tests/run-v3-m6-refinement-gate.sh && bash tests/run-v3-m6-confetti-gate.sh && bash tests/run-v3-m6-reliability-gate.sh && bash tests/run-v3-m5-release-gate.sh && bash tests/run-v3-prismatic-ribbon-gate.sh && bash tests/run-v3-m5-export-mat-gate.sh && bash tests/run-v3-m5-lifecycle-gate.sh && bash tests/run-v3-m5-color-gate.sh && bash tests/run-v3-m5-prismatic-perf-gate.sh && bash tests/run-v3-m5-crochet-smoothing-gate.sh && bash tests/run-v3-m5-lines-gate.sh && bash tests/run-v3-m5-linocut-gate.sh && bash tests/run-v3-m4-quality-gate.sh && bash tests/run-v3-m3-editor-state-gate.sh && bash tests/run-v3-m3-library-reliability-gate.sh && bash tests/run-v3-product556-gate.sh && bash tests/run-v3-export-sheet-contract-gate.sh && bash tests/run-v3-m2-render-gate.sh && bash tests/run-v3-slider-guide-gate.sh && bash tests/run-v3-product555-gate.sh && bash tests/run-v3-product554-gate.sh && bash tests/run-v3-product553-gate.sh && bash tests/run-v3-precision552-gate.sh && bash tests/run-v3-reliability551-gate.sh && bash tests/run-v3-stability550-gate.sh && bash tests/run-v3-workshop549-gate.sh && bash tests/run-v3-milestone-ab-completion-gate.sh && bash tests/run-v3-organic-smoothing-gate.sh && bash tests/run-v3-math-repair-gate.sh && bash tests/run-v3-render-speed-gate.sh && bash tests/run-v3-overlay-swatch-gate.sh && bash tests/run-v3-consensus-color-speed-gate.sh && bash tests/run-v3-slider-overprint-repair-gate.sh && bash tests/run-v3-prismatic-weave-gate.sh && bash tests/run-v3-smart-palette-gate.sh && bash tests/run-v3-render-pipeline-gate.sh && bash tests/run-v3-performance-architecture-gate.sh && bash tests/run-v3-material-calibration-gate.sh && bash tests/run-v3-user-guide-gate.sh && bash tests/run-v3-portrait-detail-restore-gate.sh && bash tests/run-v3-raster-motif-polish-gate.sh && bash tests/run-v3-vector-boolean-gate.sh && bash tests/run-v3-perceptual-swatch-gate.sh && bash tests/run-v3-selective-ridge-polish-gate.sh && bash tests/run-v3-overprint-cells-gate.sh && bash tests/run-v3-style-retirement-gate.sh && bash tests/run-v3-style-selection-gate.sh && bash tests/run-v3-organic-render-recovery-gate.sh && bash tests/run-v3-highgain-optimization-gate.sh && bash tests/run-v3-fix7-hardening-gate.sh && bash tests/run-v3-fix8-cut-tune-gate.sh && bash tests/run-v3-fix8-audit-repair-gate.sh && bash tests/run-v3-color-pipeline-repair-gate.sh && bash tests/run-v3-fix14-tonal-palette-gate.sh && bash tests/run-v3-fix15-tonal-order-gate.sh && bash tests/run-v3-fix10-geometry-options-gate.sh && bash tests/run-v3-snip-detail-gate.sh && bash tests/run-v3-fix12-crop-parity-gate.sh && bash tests/run-v3-fix13-postsnip-vectors-gate.sh && bash tests/run-v3-research-defect-gate.sh && bash tests/run-v3-beta26-export-matrix-gate.sh && bash tests/run-v3-organic-flow-gate.sh && bash tests/run-v3-organic-feature-preservation-gate.sh && bash tests/run-v3-organic-nochange-gate.sh && bash tests/run-v3-organic-medium-contours-gate.sh && bash tests/run-v3-organic-render-optimization-gate.sh && bash tests/run-v3-pop-poster-gate.sh && bash tests/run-v3-beta10-tonal-all-gate.sh && bash tests/run-v3-beta4-host-gate.sh && bash tests/run-v3-milestone-a1-gate.sh && bash tests/run-v3-milestone-a2-gate.sh && bash tests/run-v3-milestone-a3-b1-gate.sh && bash tests/run-v3-milestone-b2-gate.sh && bash tests/run-v3-milestone-b2-lines-gate.sh && bash tests/run-v3-milestone-ab-wrap-c1-gate.sh && bash tests/run-v3-milestone-c2-gate.sh && bash tests/run-v3-milestone-c3-gate.sh && bash tests/run-v3-shapes-area-tone-gate.sh && bash tests/run-v3-dense-export-gate.sh && bash tests/run-v3-star-cut-safe-gate.sh && bash tests/run-v3-prepared-export-gate.sh && bash tests/run-v3-beta25-snip-mat-gate.sh && bash tests/run-v3-release-hardening-gate.sh && bash tests/run-v3-registration-gate.sh && bash tests/run-v3-beta9-tonal-gate.sh && bash tests/run-v3-host-gate.sh && bash tests/run-v3-golden-gate.sh'
+    commandLine 'bash', '-c', 'bash tests/run-v3-m8-geometry-gate.sh && bash tests/run-v3-portrait-maze-gate.sh && bash tests/run-v3-m7-device-perf-gate.sh && bash tests/run-v3-m6-completion-gate.sh && bash tests/run-v3-m6-refinement-gate.sh && bash tests/run-v3-m6-confetti-gate.sh && bash tests/run-v3-m6-reliability-gate.sh && bash tests/run-v3-m5-release-gate.sh && bash tests/run-v3-prismatic-ribbon-gate.sh && bash tests/run-v3-m5-export-mat-gate.sh && bash tests/run-v3-m5-lifecycle-gate.sh && bash tests/run-v3-m5-color-gate.sh && bash tests/run-v3-m5-prismatic-perf-gate.sh && bash tests/run-v3-m5-crochet-smoothing-gate.sh && bash tests/run-v3-m5-lines-gate.sh && bash tests/run-v3-m5-linocut-gate.sh && bash tests/run-v3-m4-quality-gate.sh && bash tests/run-v3-m3-editor-state-gate.sh && bash tests/run-v3-m3-library-reliability-gate.sh && bash tests/run-v3-product556-gate.sh && bash tests/run-v3-export-sheet-contract-gate.sh && bash tests/run-v3-m2-render-gate.sh && bash tests/run-v3-slider-guide-gate.sh && bash tests/run-v3-product555-gate.sh && bash tests/run-v3-product554-gate.sh && bash tests/run-v3-product553-gate.sh && bash tests/run-v3-precision552-gate.sh && bash tests/run-v3-reliability551-gate.sh && bash tests/run-v3-stability550-gate.sh && bash tests/run-v3-workshop549-gate.sh && bash tests/run-v3-milestone-ab-completion-gate.sh && bash tests/run-v3-organic-smoothing-gate.sh && bash tests/run-v3-math-repair-gate.sh && bash tests/run-v3-render-speed-gate.sh && bash tests/run-v3-overlay-swatch-gate.sh && bash tests/run-v3-consensus-color-speed-gate.sh && bash tests/run-v3-slider-overprint-repair-gate.sh && bash tests/run-v3-prismatic-weave-gate.sh && bash tests/run-v3-smart-palette-gate.sh && bash tests/run-v3-render-pipeline-gate.sh && bash tests/run-v3-performance-architecture-gate.sh && bash tests/run-v3-material-calibration-gate.sh && bash tests/run-v3-user-guide-gate.sh && bash tests/run-v3-portrait-detail-restore-gate.sh && bash tests/run-v3-raster-motif-polish-gate.sh && bash tests/run-v3-vector-boolean-gate.sh && bash tests/run-v3-perceptual-swatch-gate.sh && bash tests/run-v3-selective-ridge-polish-gate.sh && bash tests/run-v3-overprint-cells-gate.sh && bash tests/run-v3-style-retirement-gate.sh && bash tests/run-v3-style-selection-gate.sh && bash tests/run-v3-organic-render-recovery-gate.sh && bash tests/run-v3-highgain-optimization-gate.sh && bash tests/run-v3-fix7-hardening-gate.sh && bash tests/run-v3-fix8-cut-tune-gate.sh && bash tests/run-v3-fix8-audit-repair-gate.sh && bash tests/run-v3-color-pipeline-repair-gate.sh && bash tests/run-v3-fix14-tonal-palette-gate.sh && bash tests/run-v3-fix15-tonal-order-gate.sh && bash tests/run-v3-fix10-geometry-options-gate.sh && bash tests/run-v3-snip-detail-gate.sh && bash tests/run-v3-fix12-crop-parity-gate.sh && bash tests/run-v3-fix13-postsnip-vectors-gate.sh && bash tests/run-v3-research-defect-gate.sh && bash tests/run-v3-beta26-export-matrix-gate.sh && bash tests/run-v3-organic-flow-gate.sh && bash tests/run-v3-organic-feature-preservation-gate.sh && bash tests/run-v3-organic-nochange-gate.sh && bash tests/run-v3-organic-medium-contours-gate.sh && bash tests/run-v3-organic-render-optimization-gate.sh && bash tests/run-v3-pop-poster-gate.sh && bash tests/run-v3-beta10-tonal-all-gate.sh && bash tests/run-v3-beta4-host-gate.sh && bash tests/run-v3-milestone-a1-gate.sh && bash tests/run-v3-milestone-a2-gate.sh && bash tests/run-v3-milestone-a3-b1-gate.sh && bash tests/run-v3-milestone-b2-gate.sh && bash tests/run-v3-milestone-b2-lines-gate.sh && bash tests/run-v3-milestone-ab-wrap-c1-gate.sh && bash tests/run-v3-milestone-c2-gate.sh && bash tests/run-v3-milestone-c3-gate.sh && bash tests/run-v3-shapes-area-tone-gate.sh && bash tests/run-v3-dense-export-gate.sh && bash tests/run-v3-star-cut-safe-gate.sh && bash tests/run-v3-prepared-export-gate.sh && bash tests/run-v3-beta25-snip-mat-gate.sh && bash tests/run-v3-release-hardening-gate.sh && bash tests/run-v3-registration-gate.sh && bash tests/run-v3-beta9-tonal-gate.sh && bash tests/run-v3-host-gate.sh && bash tests/run-v3-golden-gate.sh'
 }
 if (providers.gradleProperty('withHostRegression').orElse('false').get().toBoolean()) {
     tasks.named('preBuild').configure { dependsOn tasks.named('hostRegression') }

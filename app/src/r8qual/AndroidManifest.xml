@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Internal R8 qualification build only (applicationId com.halftonestudio.r8): identical to
+     release except a non-conflicting share-provider authority so it installs beside the
+     user's app. Never distributed. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <provider android:name=".SharedExportProvider"
+            android:authorities="com.halftonestudio.r8.sharedexports"
+            tools:replace="android:authorities"/>
+    </application>
+</manifest>

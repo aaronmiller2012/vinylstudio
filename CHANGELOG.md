@@ -1,3 +1,24 @@
+## Build 569 — M8 geometry and manufacturing candidate (3.7.0)
+
+- Portrait maze family from builds 567–568 (eight maze styles) integrated with the M7 line; a rectangular photo with transparent areas is no longer rejected as a crop.
+- Cut-inspector findings are identical for any ring start, traversal direction and ring order; the footprint report no longer depends on device speed.
+- Confetti: pieces on one sheet overlap or keep a full weed gap; cut findings at 8–11 in drop by about 95% and Mixed Confetti renders about 38% faster on the test tablet.
+- Cut-ready repair no longer wastes work on repairs it cannot use (Urban Camo 16.7 → 2.2 s on the tablet); organic sheets that are too large for the raster repair get a small, bounded windowed repair.
+- Chainmail about 34% faster (local micro-fragment cleanup, identical geometry and findings).
+- Artwork re-appears in about 1.4 s instead of re-rendering after a font-size or display change.
+- Style Picker cancel returns to the previous workspace; unsaved projects keep their name after a restart.
+- Internal R8 qualification build; first on-device test of the shrunk release configuration.
+- Not cut-qualified: Design Space / Silhouette import and physical cuts remain to be done.
+
+## Build 566 — M7 device-engineering candidate (3.6.0)
+
+- Internal `perf` build (non-debuggable, profileable, separate `com.halftonestudio.perf` sandbox) and an all-styles on-device benchmark; see `docs/engineering/M7-566-device.md`.
+- Exact faster cut-ready conditioning (row-sweep EDT, threshold transform) and linear mask morphology; exported geometry byte-identical to 565.
+- Within-sheet parallel unions on phone heaps with heap/size-tiered depth; colour sheets never concurrent on heaps <= 512 MB.
+- Preview coordinate parser, cancellation checkpoint and stencil refiner speed-ups (exact).
+- Fixed: stale style status (B1), subtitle (B2), stuck import (B3), NOT-CUT-QUALIFIED text (B4), export names (B5), restart workspace/artwork (B6/B7), slider render (B8), foreground-death autosave (B9), crop hint (B10), Colors panel (B11), re-render on every tab switch (B12), clipped tab labels (U2).
+- Measured and reverted: local micro-fragment cleanup (cut-inspection parity), hardware layer while busy (no gain), parallel cut passes (no gain).
+
 ## Build 565 — M6 consolidated qualification candidate (3.5.4)
 
 - Warning-centred bounded local Confetti conditioning; preserve prior geometry when the existing acceptance gate rejects a patch.

@@ -213,7 +213,7 @@ public class StudioActivity extends Activity {
         return cached;
     }
     private boolean skipNextPhotoPaletteSuggestion=false;
-    private synchronized void changedPhoto(){projectReviewProgress.invalidate();photoRevision++;draftSourceCache.clear();ScaleAwarePhotoSampler.clearLightCache();invalidatePreparedPalette();portraitCache.photoChanged(photoRevision);specialtyBaseCache.clear();specialtyLitCache.clear();specialtyFieldCache.clear();GeometryTemplateCache.clear();newStyleGeometryMemo.clear();
+    private synchronized void changedPhoto(){projectReviewProgress.invalidate();photoRevision++;draftSourceCache.clear();ScaleAwarePhotoSampler.clearLightCache();invalidatePreparedPalette();portraitCache.photoChanged(photoRevision);specialtyBaseCache.clear();specialtyLitCache.clear();specialtyFieldCache.clear();GeometryTemplateCache.clear();if(!keepRetainedGeometry)newStyleGeometryMemo.clear();keepRetainedGeometry=false;
         boolean restoringPalette=skipNextPhotoPaletteSuggestion;
         skipNextPhotoPaletteSuggestion=false;
         if(!restoringPalette&&stippleActive()&&"Photo-derived".equals(tessPalette)&&photo!=null)suggestStipplePhotoColors();}
@@ -232,6 +232,7 @@ public class StudioActivity extends Activity {
     /** M3: the ONLY method that assigns the artwork-mode fields above and newStyleId.
      * They are derived from one StyleSelection, so no picker can leave two modes on. */
     private void applyStyleSelection(StyleSelection s){
+        if(!s.equals(styleSelection()))setAlternateStatus(getString(R.string.quality_rendering));
         continuousStyle=s.is(StyleSelection.Kind.CONTINUOUS_LINE)?ContinuousLineModes.LineStyle.valueOf(s.lineStyle):null;
         tonalStencilMode=s.is(StyleSelection.Kind.TONAL_STENCIL);
         mazePortraitMode=s.is(StyleSelection.Kind.MAZE);
@@ -316,7 +317,7 @@ public class StudioActivity extends Activity {
         String repaired=stage.repairStatus(); // M4: removed geometry is stated, not hidden
         alternateCutWarnings=repaired.isEmpty()?
             "Cut-ready geometry shown; this is what will be cut. A test cut is still required.":repaired;
-        alternateStatus=stage.cut.summary+" · "+alternateCutWarnings;
+        setAlternateStatus(stage.cut.summary+" · "+alternateCutWarnings);
         if(status!=null)status.setText(alternateStatus);
         artwork.invalidate();
         if((activeWorkspace==4&&tool==3)||(activeWorkspace==2&&tool==1))refreshShelfPanel();
@@ -333,10 +334,14 @@ public class StudioActivity extends Activity {
         try{
             newStyleCutJob=renderController.cutPreparation().submit(()->{
                 try{
+                    long cutStart=android.os.SystemClock.elapsedRealtime();
                     SuiteCutStage stage=SuiteCutStage.prepare(prepareFrom,style,min,bridge);
+                    long prepared=android.os.SystemClock.elapsedRealtime();
                     NewStyleVectorCache vectors=new NewStyleVectorCache(stage.cut);
                     StyleLayerOperations.Counts[] operations=style==VinylStyleSuite.POP_PANELS?null:
                         StyleLayerOperations.bySlot(stage.cut,style,variant,colorCount);
+                    android.util.Log.d("VinylPerf","cutStage style="+style+" min="+min+" bridge="+bridge+" loops="+loopCount(prepareFrom)+" conditioned="+VinylStyleSuite.lastPrepareLayers+" accepted="+VinylStyleSuite.lastPrepareAccepted+" prepareMs="+(prepared-cutStart)+
+                        " previewAndCountsMs="+(android.os.SystemClock.elapsedRealtime()-prepared));
                     if(Thread.currentThread().isInterrupted()||token!=alternateGeneration)return;
                     postUi(()->publishNewStyleCut(token,generated,stage,vectors,operations));
                 }catch(CancellationException superseded){
@@ -353,6 +358,7 @@ public class StudioActivity extends Activity {
             if(status!=null&&token==alternateGeneration)status.setText(getString(R.string.m5_cut_ready_deferred_to_export));
         }
     }
+    private static int loopCount(StyleKit.Result r){int n=0;if(r!=null)for(StyleKit.Layer l:r.layers)n+=l.loops.size();return n;}
     private volatile StyleLayerOperations.Counts[] newStyleOperations;
     private volatile NewStyleVectorCache newStyleVectors;
     private boolean newStyleActive(){return newStyleId>=0;}
@@ -439,7 +445,14 @@ public class StudioActivity extends Activity {
     }
     // Bounded final-only filter cache; draft/UI scopes cannot evict final fields.
     private final RenderImageFieldCache specialtyFieldCache=new RenderImageFieldCache(3,12L*1024*1024);
-    private final NewStyleGeometryMemo newStyleGeometryMemo=new NewStyleGeometryMemo();
+    /** M8 U3: retained across configuration recreation (font scale, night mode, locale) so the
+     *  restored editor re-publishes its exact final geometry instead of showing the raw photo
+     *  through a full re-render. Safe by construction: a hit requires identical source pixels and
+     *  an identical Config. Nothing keyed by the per-instance photo revision is retained. */
+    private NewStyleGeometryMemo newStyleGeometryMemo=new NewStyleGeometryMemo();
+    /** True until the first startup restore of a recreated activity has re-loaded its photo. */
+    private boolean keepRetainedGeometry;
+    @Override public Object onRetainNonConfigurationInstance(){return newStyleGeometryMemo;}
     private long specialtyVisibleRevision=-1;
     private int specialtyVisibleStyle=-1,specialtyVisibleVariant=-1;
     private volatile String preparedPhotoPaletteKey="";
@@ -868,6 +881,17 @@ public class StudioActivity extends Activity {
     private volatile SpecialtyVectorCache specialtyVectorCache=null;
     private boolean stippleShowCutOutlines=false;
     private volatile String alternateStatus="";
+    /** Live Adjust-panel copy of {@link #alternateStatus} (B1: never a previous style's text). */
+    private TextView alternateStatusLabel;
+    private void setAlternateStatus(String text){
+        alternateStatus=text==null?"":text;
+        if(android.os.Looper.myLooper()!=android.os.Looper.getMainLooper()){handler.post(()->setAlternateStatus(alternateStatus));return;}
+        if(alternateStatusLabel!=null)alternateStatusLabel.setText(alternateStatus);
+    }
+    private TextView alternateStatusView(){
+        alternateStatusLabel=text(alternateStatus,12,ACCENT,false);
+        return alternateStatusLabel;
+    }
     private volatile int continuousBladeContours=-1,continuousPenPaths=-1,mazeWallSegments=-1;
     private volatile int alternateGeneration=0;
     private volatile int alternateReadyGeneration=-1;
@@ -1060,6 +1084,8 @@ public class StudioActivity extends Activity {
     private volatile int startupRestoreSerial=0;
     private volatile boolean startupRestoring=false;
     private int startupSavedStep=0;
+    /** B6/B7: the workspace tab (and its subtool) is restored with the workflow step; -1 = legacy prefs. */
+    private int startupSavedWorkspace=-1,startupSavedSubtool=0;
     private String startupSavedDraft=null;
     private void cancelStartupRestore(){startupRestoreSerial++;startupRestoring=false;}
     private boolean sliderDragging=false;
@@ -1206,7 +1232,7 @@ public class StudioActivity extends Activity {
 
     /** Native Android 13+ predictive/system Back, installed only on supported API levels. */
     private Object systemBackCallback;
-    private static final String STATE_STEP="vinyl.rc161.workflow";
+    private static final String STATE_STEP="vinyl.rc161.workflow",STATE_WORKSPACE="vinyl.m7.workspace",STATE_SUBTOOL="vinyl.m7.subtool";
     private static final String STATE_DRAFT="vinyl.rc161.draft";
     private static final String STATE_FULLSCREEN="vinyl.rc161.fullscreen";
     private static final String STATE_TYPE="vinyl.rc161.type";
@@ -1224,6 +1250,11 @@ public class StudioActivity extends Activity {
         status.setTextColor(StatusLinePolicy.classify(text)==StatusLinePolicy.Kind.PROBLEM?0xffFFD093:MUTED);
         status.setVisibility(View.VISIBLE);
         if(ms>0)handler.postDelayed(hideStatusLine,ms);
+    }
+    private void showStatusDetails(){
+        if(status==null||status.getText().length()==0)return;
+        new AlertDialog.Builder(this).setTitle("Artwork status").setMessage(status.getText().toString())
+            .setPositiveButton("Close",null).setNeutralButton("Cut Check",(d,w)->setTool(6)).show();
     }
     private boolean panelOpen=false,restoring=false;
     /** Search text survives gallery refreshes after rename/delete; never saved in project ZIPs. */
@@ -1270,6 +1301,9 @@ public class StudioActivity extends Activity {
     private final RenderDraftSourceCache draftSourceCache=new RenderDraftSourceCache();
     private volatile Bitmap tonalPreview;
     @Override public void onCreate(Bundle state){super.onCreate(state);
+        Object retained=getLastNonConfigurationInstance();
+        if(retained instanceof NewStyleGeometryMemo){newStyleGeometryMemo=(NewStyleGeometryMemo)retained;keepRetainedGeometry=true;}
+        android.util.Log.d("VinylPerf","geometryMemo retained="+(retained instanceof NewStyleGeometryMemo));
         VectorBooleanEngine.install(new JtsVectorBooleanBackend());
         android.app.ActivityManager memoryManager=(android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE);
         ParallelGeometry.configureMemoryBudget(memoryManager!=null&&memoryManager.isLowRamDevice(),Runtime.getRuntime().maxMemory());
@@ -1313,11 +1347,15 @@ public class StudioActivity extends Activity {
         // UI-only state is kept small; the actual artwork lives in the atomic project/photo store.
         if(state!=null)startupSavedDraft=state.getString(STATE_DRAFT,startupSavedDraft);
         currentLibraryId=getPreferences(MODE_PRIVATE).getString("currentLibraryId",null);
-        projectLabel=currentLibraryId==null?"New project":getPreferences(MODE_PRIVATE).getString("currentLibraryName","Photo project");
+        // M8: an unsaved project (sample, imported photo) keeps its persisted label after a restart.
+        projectLabel=getPreferences(MODE_PRIVATE).getString("currentLibraryName",currentLibraryId==null?"New project":"Photo project");
         adoptLibraryHandoff(); // D14: a save that finished while the previous Activity was being destroyed
         getPreferences(MODE_PRIVATE).registerOnSharedPreferenceChangeListener(libraryHandoffListener);
         startupSavedStep=getPreferences(MODE_PRIVATE).getInt("workflowStep",WorkflowFlow.SNIP);
         if(state!=null)startupSavedStep=state.getInt(STATE_STEP,startupSavedStep);
+        startupSavedWorkspace=getPreferences(MODE_PRIVATE).getInt("activeWorkspace",-1);
+        startupSavedSubtool=getPreferences(MODE_PRIVATE).getInt("activeSubtool",0);
+        if(state!=null){startupSavedWorkspace=state.getInt(STATE_WORKSPACE,startupSavedWorkspace);startupSavedSubtool=state.getInt(STATE_SUBTOOL,startupSavedSubtool);}
         workflowStep=photo==null?0:startupSavedStep;
         for(int phase=0;phase<3;phase++)lastStepInPhase[phase]=getPreferences(MODE_PRIVATE)
             .getInt("lastPhaseStep"+phase,WorkflowFlow.firstStage(phase));
@@ -1467,7 +1505,11 @@ public class StudioActivity extends Activity {
         status.setGravity(Gravity.CENTER_VERTICAL);
         status.setPadding(dp(12),0,dp(10),0);canvasColumn.addView(status,new LinearLayout.LayoutParams(-1,dp(18)));
         status.setVisibility(View.GONE);
-        status.setOnClickListener(v->setTool(6));
+        status.setOnClickListener(v->{
+            if(StatusLinePolicy.classify(status.getText())==StatusLinePolicy.Kind.PROBLEM)showStatusDetails();
+            else setTool(6);
+        });
+        status.setOnLongClickListener(v->{showStatusDetails();return true;});
         // D9: every status.setText(...) now becomes visible feedback (StatusLinePolicy):
         // progress stays until replaced, problems stay readable, routine notes auto-hide.
         status.addTextChangedListener(new android.text.TextWatcher(){
@@ -1560,7 +1602,7 @@ public class StudioActivity extends Activity {
         TextView display=text(sliderValueText(label,initialValue,increment),13,StudioTheme.ACCENT_INK,true);display.setGravity(Gravity.CENTER);display.setPadding(dp(10),0,dp(10),0);display.setBackground(shape(StudioTheme.ACCENT_SOFT,StudioTheme.R_CHIP));row.addView(display,new LinearLayout.LayoutParams(-2,dp(28)));
         SeekBar bar=new SeekBar(this);bar.setMax(SliderRangePolicy.steps(min,max,increment));bar.setProgress(initialProgress);bar.setContentDescription(friendly+", "+display.getText());styleSeekBar(bar);
         parent.addView(bar,new LinearLayout.LayoutParams(-1,dp(48)));
-        bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){@Override public void onStartTrackingTouch(SeekBar s){checkpoint();sliderDragging=true;}@Override public void onStopTrackingTouch(SeekBar s){sliderDragging=false;invalidateToolPanels();requestRender();}@Override public void onProgressChanged(SeekBar s,int progress,boolean fromUser){if(!fromUser)return;float v=SliderRangePolicy.value(progress,min,max,increment);display.setText(sliderValueText(label,v,increment));s.setContentDescription(friendly+", "+display.getText());if(progress%10==0)s.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK);int previousSerial=serial,previousAlt=alternateGeneration;callback.accept(v);
+        bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){boolean changed;@Override public void onStartTrackingTouch(SeekBar s){checkpoint();sliderDragging=true;changed=false;}@Override public void onStopTrackingTouch(SeekBar s){sliderDragging=false;invalidateToolPanels();if(changed)requestRender();changed=false;}@Override public void onProgressChanged(SeekBar s,int progress,boolean fromUser){if(!fromUser)return;changed=true;float v=SliderRangePolicy.value(progress,min,max,increment);display.setText(sliderValueText(label,v,increment));s.setContentDescription(friendly+", "+display.getText());if(progress%10==0)s.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK);int previousSerial=serial,previousAlt=alternateGeneration;callback.accept(v);
             if(previousSerial==serial&&previousAlt==alternateGeneration)requestRender();}});
     }
     private void addSettingHelp(LinearLayout row,String label,String explanation){
@@ -1587,9 +1629,10 @@ public class StudioActivity extends Activity {
         styleSeekBar(bar);
         parent.addView(bar,new LinearLayout.LayoutParams(-1,dp(48)));
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
-            @Override public void onStartTrackingTouch(SeekBar seek){checkpoint();sliderDragging=true;}
-            @Override public void onStopTrackingTouch(SeekBar seek){sliderDragging=false;invalidateToolPanels();requestRender();}
-            @Override public void onProgressChanged(SeekBar seek,int progress,boolean user){if(!user)return;
+            boolean changed; // B8: a touch that did not move the value must not start a render
+            @Override public void onStartTrackingTouch(SeekBar seek){checkpoint();sliderDragging=true;changed=false;}
+            @Override public void onStopTrackingTouch(SeekBar seek){sliderDragging=false;invalidateToolPanels();if(changed)requestRender();changed=false;}
+            @Override public void onProgressChanged(SeekBar seek,int progress,boolean user){if(!user)return;changed=true;
                 float mm=VinylEngine.toMm(SliderRangePolicy.value(progress,minIn,maxIn,stepIn));display.setText(inches(mm));seek.setContentDescription(friendly+", "+display.getText());int previousSerial=serial,previousAlt=alternateGeneration;onMillimeters.accept(mm);
                 if(previousSerial==serial&&previousAlt==alternateGeneration)requestRender();}
         });
@@ -2213,6 +2256,7 @@ public class StudioActivity extends Activity {
         // Shapes is a launcher, not a second parameter workspace.
         if(next==1){
             if(hasPendingSnip()){toast(getString(R.string.ui_finish_your_snip_before_changing_artwork));return;}
+            if(activeWorkspace!=1)workspaceBeforeStylePicker=activeWorkspace;
             switchWorkspaceState(1);
             updateEditorSubtitle();rebuildNavigation();
             showUnifiedStyleDrawer();
@@ -2263,6 +2307,9 @@ public class StudioActivity extends Activity {
                 LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(StudioTheme.H_NAV-8),1);lp.leftMargin=dp(2);lp.rightMargin=dp(2);
                 navRow.addView(pill,lp);
                 TextView label=text(WORKSPACE_NAMES[i]+"\n"+workspaceName(i),11,MUTED,true);label.setLetterSpacing(.02f);
+                // U2: large system font sizes shrink the two-line tab label to fit instead of clipping it.
+                label.setMaxLines(2);
+                label.setAutoSizeTextTypeUniformWithConfiguration(7,11,1,android.util.TypedValue.COMPLEX_UNIT_SP);
                 label.setGravity(Gravity.CENTER);pill.addView(label,new FrameLayout.LayoutParams(-1,-1));
                 // All six primary workspaces remain visible and directly selectable.
                 pill.setOnClickListener(v->{v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);selectWorkspace(selected);});
@@ -2809,7 +2856,7 @@ public class StudioActivity extends Activity {
             trioSpacingMm=trioSpacingMemory[id-VinylStyleSuite.CONFETTI];
             trioOrganic=trioOrganicMemory[id-VinylStyleSuite.CONFETTI];
         }
-        alternateStatus=VinylStyleSuite.NAMES[id]+" · preparing preview…";
+        setAlternateStatus(VinylStyleSuite.NAMES[id]+" · preparing preview…");
         newStyleResult=null;newStyleVectors=null;
         if(newStyleSettingsSaved[id]){
             newStyleDetail=newStyleDetailMemory[id];
@@ -2846,6 +2893,11 @@ public class StudioActivity extends Activity {
             newStyleColorCount=Math.max(NewStyleColorSlots.minimumSelectable(id),
                 Math.min(NewStyleColorSlots.maximumSelectable(id),preferred));
             newStyleMatchVinyl=useCamoDefaults;
+            if(VinylStyleSuite.isMaze(id)){
+                newStyleColors[0]=id==VinylStyleSuite.MULTILAYER_MAZE?0xfff2dfb8:0xff161616;
+                if(id==VinylStyleSuite.MULTILAYER_MAZE)newStyleColors[1]=0xff161616;
+                newStyleMatchVinyl=true;newStylePhotoAutoMemory[id]=false;
+            }
             if(id==VinylStyleSuite.POSTER_STENCIL){
                 newStyleColors=PopPosterEngine.posterPalette(posterOptions.posterPalette,9);
                 newStyleMatchVinyl=true;
@@ -2883,6 +2935,7 @@ public class StudioActivity extends Activity {
         if(changed)requestAlternate();
     }
     private static String newStyleVariantName(int style,int variant){
+        if(VinylStyleSuite.isMaze(style))return new String[]{"Easy","Normal","Hard","Expert"}[Math.max(0,Math.min(3,variant))];
         switch(style){
             case VinylStyleSuite.TSP:return variant==0?"Pen / Engrave":"Cut Vinyl";
             case VinylStyleSuite.LINOCUT:return variant==0?"Single pass":"Crosshatch";
@@ -3071,6 +3124,10 @@ public class StudioActivity extends Activity {
                 "Symbols follow the photograph's color regions and important edges.":
                 (newStyleVariant==2?"Opaque vinyl color plates contain cut-out, readable words. The Snip background shows through the letters.":
                  "Complete cuttable words build image detail over the solid Snip background."),13,MUTED,false));
+        if(VinylStyleSuite.isMaze(newStyleId)){
+            slider(host,"Passage width · mm",newStyleWeightMm,.8f,1.5f,.1f,v->{newStyleWeightMm=v;requestAlternate();});
+            host.addView(text("One verified route · rectangular crop without Snip · puzzle and solution included in cut ZIP",12,MUTED,false));
+        }
         if(VinylStyleSuite.isPrismaticFamily(newStyleId)){
             // First control is always Spacing for this style. All controls directly
             // affect vector geometry (no hidden Advanced drawer or dead sliders).
@@ -3160,7 +3217,7 @@ public class StudioActivity extends Activity {
                     }).setNegativeButton("Cancel",null).show();
             });
         host.addView(text("Cut dimensions and geometric safety follow the selected material. Colors and physical layer count are in Colors; no extra geometry sliders.",12,MUTED,false));
-        host.addView(text(alternateStatus,12,ACCENT,false));
+        host.addView(alternateStatusView());
     }
     private void rememberNewStylePalette(){
         if(newStyleId<0||newStyleId>=VinylStyleSuite.NAMES.length)return;
@@ -3777,6 +3834,11 @@ public class StudioActivity extends Activity {
                 StudioThumbnailRegistry.newStyle(id),newStyleActive()&&newStyleId==style,
                 ()->{dialog.dismiss();activateNewStyle(style);});
         }
+        for(int id=VinylStyleSuite.PORTRAIT_MAZE;id<=VinylStyleSuite.MULTILAYER_MAZE;id++){
+            final int style=id;
+            addPickerChoice(out,arts,VinylStyleSuite.NAMES[id],"Verified single-solution maze",StudioThumbnailRegistry.newStyle(id),
+                newStyleActive()&&newStyleId==style,()->{dialog.dismiss();activateNewStyle(style);});
+        }
         return out;
     }
     static String prismaticStyleNote(int style){
@@ -4025,8 +4087,21 @@ public class StudioActivity extends Activity {
         close.setOnClickListener(v->dialog.dismiss());
         return root;
     }
+    /** M8: Styles is a launcher workspace. Open style dialogs; when the last one closes and no
+     *  style was chosen (still on workspace 1), the tab and panel return to the previous workspace
+     *  instead of showing "Styles" over another workspace's panel. Checked after the dismiss so a
+     *  dialog that reopens the picker (details back, child cancel) keeps it open. */
+    private int stylePickersOpen,workspaceBeforeStylePicker=2;
+    private final ArrayList<android.app.Dialog> openStyleDialogs=new ArrayList<>();
     private void openStyleDialog(android.app.Dialog dialog,LinearLayout root,boolean child){
         dialog.setContentView(root);dialog.setCancelable(true);dialog.setCanceledOnTouchOutside(true);
+        stylePickersOpen++;openStyleDialogs.add(dialog);
+        dialog.setOnDismissListener(d->{stylePickersOpen=Math.max(0,stylePickersOpen-1);openStyleDialogs.remove(dialog);
+            handler.post(()->{if(stylePickersOpen==0&&activeWorkspace==1&&!isFinishing()){
+                int back=workspaceBeforeStylePicker==1?2:workspaceBeforeStylePicker;
+                // Returning must not replay a dialog-opening subtool (Prepare > Finished size).
+                if(back==0&&activeSubtoolPosition==4)activeSubtoolPosition=0;
+                selectWorkspace(back);}});});
         // Dialog owns Back while visible; OnCancel handles gesture and button equally.
         // Dismiss from selecting a style does not trigger the cancel navigation.
         if(child)dialog.setOnCancelListener(d->showUnifiedStyleDrawer());
@@ -4502,7 +4577,7 @@ public class StudioActivity extends Activity {
                 slider(g,"Line width · mm",continuousStrokeMm,.10f,1.50f,.05f,v->{continuousStrokeMm=v;refreshSingleLinePreview();});
             slider(g,"Portrait detail",continuousDensity,1,100,1,v->{continuousDensity=Math.round(v);requestAlternate();});
         }
-        g.addView(text(alternateStatus,12,ACCENT,false));
+        g.addView(alternateStatusView());
     }
 
     private void refreshSingleLinePreview(){
@@ -5085,6 +5160,7 @@ public class StudioActivity extends Activity {
     private final Runnable alternateDraftDebounce=()->startAlternateRender(true);
     private void requestAlternate(){requestAlternate(false);}
     private void requestAlternate(boolean registrationOnly){
+        scheduleEditorAutosave();
         projectReviewProgress.invalidate();
         if(!registrationOnly)registrationRenderPending=false;
         stencilNeedsRender=true;
@@ -5209,7 +5285,7 @@ public class StudioActivity extends Activity {
                             newStyleOperations=null;
                             alternateReadyGeneration=token;
                             alternatePreviewDraft=true;
-                            alternateStatus="Draft visible · generating final cut geometry";
+                            setAlternateStatus("Draft visible · generating final cut geometry");
                             artwork.invalidate();
                             if(status!=null)status.setText(alternateStatus);
                         });
@@ -5223,6 +5299,8 @@ public class StudioActivity extends Activity {
                 android.util.Log.i("VinylNewStyles","Starting final render style="+config.style+
                     " generation="+token+" elapsedMs="+
                     (android.os.SystemClock.elapsedRealtime()-renderStart));
+                final boolean portraitMaze=VinylStyleSuite.isMaze(config.style);
+                if(portraitMaze)MazeInputPolicy.requireRectangle(circular,snips!=null&&!snips.isEmpty());
                 SpecialtyPrepared prep;
                 android.os.Trace.beginSection("VinylStudio.NewStylePrepare");
                 try{prep=specialtyPrepared(revision,source,snips,fillMode,circular,draft,adjustments);}
@@ -5231,12 +5309,12 @@ public class StudioActivity extends Activity {
                 int w=prep.bitmap.getWidth(),h=prep.bitmap.getHeight();
                 int[] rgb=prep.pixels;
                 config.allowed=new boolean[w*h];
-                float hm=config.widthMm*h/(float)w,margin=adjustments.marginMm;
+                float hm=config.widthMm*h/(float)w,margin=MazeInputPolicy.effectiveInsetMm(portraitMaze,adjustments.marginMm);
                 for(int y=0;y<h;y++)for(int x=0;x<w;x++){
                     if((y&63)==0&&Thread.currentThread().isInterrupted())throw new CancellationException();
                     int i=y*w+x;
                     float mx=(x+.5f)*config.widthMm/w,my=(y+.5f)*hm/h;
-                    config.allowed[i]=((rgb[i]>>>24)>=128)&&
+                    config.allowed[i]=MazeInputPolicy.allowsPixel(portraitMaze,rgb[i])&&
                         mx>=margin&&my>=margin&&mx<=config.widthMm-margin&&my<=hm-margin;
                 }
                 final AutoSilhouetteUnderlay.Output generatedBase=
@@ -5249,6 +5327,7 @@ public class StudioActivity extends Activity {
                     StyleKit.withImageFieldCache(specialtyFieldCache,()->newStyleGeometryMemo.generate(rgb,w,h,config,()->VinylStyleSuite.generate(rgb,w,h,config)));}
                 finally{android.os.Trace.endSection();}
                 NewStyleVectorCache vectors=new NewStyleVectorCache(result);
+                android.util.Log.d("VinylPerf","geometryMemo hits="+newStyleGeometryMemo.hits+" misses="+newStyleGeometryMemo.misses);
                 android.util.Log.d("VinylPerf","newstyle styleKey=newstyle:"+config.style+":"+config.variant+" draft="+draft+
                     " layers="+config.colorCount+" totalMs="+(android.os.SystemClock.elapsedRealtime()-renderStart));
                 android.util.Log.i("VinylNewStyles","Style="+config.style+
@@ -5273,12 +5352,16 @@ public class StudioActivity extends Activity {
                     newStyleCutStage=null;newStyleRenderVariant=config.variant;newStyleRenderColorCount=config.colorCount;
                     alternateCutWarnings=draft?"Draft only · release slider for cut checks.":
                         "Preparing cut-ready geometry in the background";
-                    alternateStatus=result.summary+" · "+alternateCutWarnings;
+                    setAlternateStatus(result.summary+" · "+alternateCutWarnings);
                     artwork.invalidate();setRenderBusy(false);
                     if(status!=null)status.setText(alternateStatus);
-                    if((activeWorkspace==4&&tool==3)||(activeWorkspace==2&&tool==1)){
+                    // B11: Colors shows the rendered swatches and cut state, so refresh it too.
+                    if((activeWorkspace==4&&tool==3)||(activeWorkspace==2&&tool==1)||(activeWorkspace==3&&tool==2)){
                         refreshShelfPanel();
                     }
+                    // B12: a completed final render satisfies the request; switching workspaces must not
+                    // re-render (and re-run the cut-ready stage) for unchanged suite-style artwork.
+                    if(!draft)stencilNeedsRender=false;
                     if(!draft)startNewStyleCutPreparation(token,result,config.style,config.variant,config.colorCount);
                 });
             }catch(CancellationException cancelled){
@@ -5287,14 +5370,15 @@ public class StudioActivity extends Activity {
                 android.util.Log.e("VinylNewStyles","Render out of memory",oom);
                 draftSourceCache.clear();ScaleAwarePhotoSampler.clearLightCache();specialtyFieldCache.clear();GeometryTemplateCache.clear();newStyleGeometryMemo.clear();
                 postUi(()->{if(token==alternateGeneration){
-                    setRenderBusy(false);alternateStatus="Not enough memory for this style; lower Detail";
+                    setRenderBusy(false);setAlternateStatus("Not enough memory for this style; lower Detail");
                     toast(alternateStatus);artwork.invalidate();
                 }});
             }catch(Exception error){
                 android.util.Log.e("VinylNewStyles","Render failed",error);
                 postUi(()->{if(token==alternateGeneration){
-                    setRenderBusy(false);alternateStatus="Render failed: "+friendlyFailure(error,"Unable to render these settings");
-                    toast(alternateStatus);artwork.invalidate();
+                    setRenderBusy(false);setAlternateStatus("Render failed: "+friendlyFailure(error,"Unable to render these settings"));
+                    if(status!=null)status.setText(alternateStatus);
+                    toast("Render failed. Tap the artwork status for details.");artwork.invalidate();
                     if(activeWorkspace==2){invalidateToolPanels();refreshShelfPanel();}
                 }});
             }
@@ -5641,13 +5725,13 @@ public class StudioActivity extends Activity {
                         "Inspect minimum features and perform a material test cut.";
                     if(completedTonalConcerns>0)alternateCutWarnings=completedTonalConcerns+" layers have fine-geometry cut risks; inspect cut-checks.csv after export.";
                     int populated=0;if(layers!=null)for(int li=0;li<layers.layers.size();li++)if(!layers.isEmpty(li))populated++;
-                    alternateStatus=(cellReady!=null?cellReady.summary():mosaicReady!=null?mosaicReady.summary():mazeReady!=null?mazeReady.summary():layers!=null?"Source-color stencil "+populated+"/"+count+" layers populated · "+layers.status():"Continuous "+(style==null?"portrait":style.name())+" generated"+(spaceReady!=null?" · "+spaceReady.vertices+" vertices"+(ribbonReady!=null?" · cut silhouette ready":""):""))+" · "+alternateCutWarnings;
+                    setAlternateStatus((cellReady!=null?cellReady.summary():mosaicReady!=null?mosaicReady.summary():mazeReady!=null?mazeReady.summary():layers!=null?"Source-color stencil "+populated+"/"+count+" layers populated · "+layers.status():"Continuous "+(style==null?"portrait":style.name())+" generated"+(spaceReady!=null?" · "+spaceReady.vertices+" vertices"+(ribbonReady!=null?" · cut silhouette ready":""):""))+" · "+alternateCutWarnings);
                     if(activeWorkspace==4 && (style!=null || mazeMode))refreshShelfPanel();
                     else if(activeWorkspace==4 && (layers!=null || cellReady!=null || mosaicReady!=null))
                         updateVisibleLayerCutLabels();
                     artwork.invalidate();setRenderBusy(false);if(status!=null)status.setText(alternateStatus);
                     if(!draft&&mosaicReady!=null&&mosaicReady.stipple!=null){
-                        alternateStatus=mosaicReady.summary()+" · Preparing cut-ready dots in the background";
+                        setAlternateStatus(mosaicReady.summary()+" · Preparing cut-ready dots in the background");
                         if(status!=null)status.setText(alternateStatus);
                         startStippleCutPreparation(token,mosaicReady);
                     }
@@ -5682,7 +5766,7 @@ public class StudioActivity extends Activity {
                 final String why=ex instanceof OutOfMemoryError?"not enough device memory. Lower Detail or the artwork size":
                     friendlyFailure(ex,"these settings could not be rendered. Try lower Detail or another size");
                 postUi(()->{if(token==alternateGeneration){
-                    alternateStatus="Render failed: "+why;
+                    setAlternateStatus("Render failed: "+why);
                     alternateReadyGeneration=-1;
                     setRenderBusy(false);if(status!=null)status.setText(alternateStatus);
                     if(editorSubtitle!=null)editorSubtitle.setText(alternateStatus);
@@ -5739,7 +5823,7 @@ public class StudioActivity extends Activity {
         preparedSpecialtyDevice=device;preparedSpecialtyBase=base;
         Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
         i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/zip");
-        i.putExtra(Intent.EXTRA_TITLE,"VinylStudio-"+label+"-cut-layers.zip");
+        i.putExtra(Intent.EXTRA_TITLE,ExportFileNames.cutZip(projectLabel,label));
         try{startActivityForResult(i,ALTERNATE_EXPORT);}
         catch(RuntimeException failure){
             discardPreparedSpecialtyCutZip();
@@ -6023,6 +6107,7 @@ public class StudioActivity extends Activity {
         final int token=alternateGeneration;
         final StyleKit.Result result=newStyleResult;
         final int style=newStyleId;
+        final int mazeMountingColor=settings.paper;
         final boolean marks=settings.registration;
         final int markStyle=settings.markStyle;
         final float markSize=settings.markSizeMm, clearance=settings.registrationClearanceMm;
@@ -6069,6 +6154,7 @@ public class StudioActivity extends Activity {
                     postUi(()->publishNewStyleCut(token,result,prepared,cutVectors,cutOperations));
                 }
                 reviewedCut[0]=cut;
+                if(VinylStyleSuite.isMaze(style))PortraitMazeSuiteAdapter.verify(cut,style,minCut,minGap);
                 // Never publish a staged ZIP before the user has seen the
                 // physical-cut report, including incomplete complexity scans.
                 java.util.List<StyleCutGeometryPreflight.Warning> geometryWarnings=
@@ -6128,6 +6214,11 @@ public class StudioActivity extends Activity {
                         exported++;
                     }
                     if(exported==0)throw new IOException("Style contains no exportable geometry");
+                    if(VinylStyleSuite.isMaze(style)){
+                        putZip(zip,"maze-reference/puzzle.svg",PortraitMazeSuiteAdapter.puzzleSvg(cut,false,mazeMountingColor));
+                        putZip(zip,"maze-reference/solution.svg",PortraitMazeSuiteAdapter.puzzleSvg(cut,true,mazeMountingColor));
+                        putZip(zip,"maze-reference/verification.txt",cut.maze.report()+"\nPresentation SVGs are NOT cutter sheets.\n");
+                    }
                     putZip(zip,"layer-manifest.csv",cuts.manifest(manifest.toString()));
                     if(includeSource)putJpeg(zip,"source-photo.jpg",originalPhoto==null?photo:originalPhoto);
                     StringBuilder review=new StringBuilder("physical_layer,x_mm,y_mm,warning\n");
@@ -6162,7 +6253,7 @@ public class StudioActivity extends Activity {
                 }
                 stage.verify();
                 final StagedCutZip verified=stage;stage=null;
-                postUi(()->offerPreparedSpecialtyZip(verified,token,targetForThisExport,capturedBase,"art-style"));
+                postUi(()->offerPreparedSpecialtyZip(verified,token,targetForThisExport,capturedBase,currentStyleName()));
             }catch(FinalCutReviewRequired unverified){
                 if(stage!=null)stage.close();
                 postUi(()->{
@@ -6209,7 +6300,7 @@ public class StudioActivity extends Activity {
         cachedHeatmap=null;heatmapGeneration=-1;
         commitMarkReport();
         alternateCutWarnings="Cut-ready dots shown; these are the dots that will be cut. A test cut is still required.";
-        alternateStatus=full.summary()+" · "+alternateCutWarnings;
+        setAlternateStatus(full.summary()+" · "+alternateCutWarnings);
         if(status!=null)status.setText(alternateStatus);
         if(activeWorkspace==4)refreshShelfPanel();
         artwork.invalidate();
@@ -6537,7 +6628,7 @@ public class StudioActivity extends Activity {
                 } // Flush and close the staged output stream before CRC verification.
                 stage.verify();
                 final StagedCutZip verified=stage;stage=null;
-                postUi(()->offerPreparedSpecialtyZip(verified,renderToken,targetForThisExport,capturedBase,"specialty"));
+                postUi(()->offerPreparedSpecialtyZip(verified,renderToken,targetForThisExport,capturedBase,currentStyleName()));
             }catch(FinalCutReviewRequired unverified){
                 if(stage!=null)stage.close();
                 postUi(()->{
@@ -8185,7 +8276,9 @@ public class StudioActivity extends Activity {
     private float[] draftPoints(){float[] xy=new float[snipDraft.size()*2];for(int i=0;i<snipDraft.size();i++){xy[2*i]=snipDraft.get(i)[0];xy[2*i+1]=snipDraft.get(i)[1];}return xy;}
     private void boundaryPanel(){
         LinearLayout a=group();
-        slider(a,"No-cut inset · mm",settings.marginMm,0,15,.25f,v->settings.marginMm=v);
+        if(newStyleActive()&&VinylStyleSuite.isMaze(newStyleId))
+            a.addView(text("Maze fills the rectangular crop so both entrances stay open. Use outside material space for handling.",12,MUTED,false));
+        else slider(a,"No-cut inset · mm",settings.marginMm,0,15,.25f,v->settings.marginMm=v);
         slider(a,"Outside material space · mm",settings.outerSpacingMm,0,30,.5f,v->settings.outerSpacingMm=v);
         a.addView(text(settings.circleCrop?"Inset follows circular crop · no extra outline cut":"Inset follows rectangular crop · no extra outline cut",12,ACCENT,false));
         if(continuousStyle!=null||mazePortraitMode)a.addView(text(activeCurveFamily()&&curveVinylRibbon?
@@ -8684,7 +8777,19 @@ public class StudioActivity extends Activity {
         committedMarkReport=null;
         if(!reuseRegistrationOnly())requestRender(true);
     }
+    /** B9: accepted edits are autosaved shortly after they settle, not only at onPause, so a
+     * foreground process death (crash, OOM kill, force-stop) cannot drop them. */
+    static final long EDITOR_AUTOSAVE_DELAY_MS=1500;
+    private final Runnable editorAutosave=()->{if(!isFinishing()&&!isDestroyed()&&!sliderDragging)persistLifecycleEditor();};
+    private void scheduleEditorAutosave(){
+        if(handler==null)return;
+        handler.removeCallbacks(editorAutosave);handler.postDelayed(editorAutosave,EDITOR_AUTOSAVE_DELAY_MS);
+    }
+    /** Test counter: render requests committed outside a slider drag (B8). */
+    private int committedRenderRequests;
     private void requestRender(boolean keepCurrentRegistrationArtwork){
+        if(!sliderDragging)committedRenderRequests++;
+        scheduleEditorAutosave();
         materializeMarkLayout();
         projectReviewProgress.invalidate();
         registrationRenderPending=keepCurrentRegistrationArtwork && photo!=null && activeWorkspace!=0;
@@ -8912,6 +9017,9 @@ public class StudioActivity extends Activity {
     void restorePristineEditorForTest(){restorePristineEditor();}
     int toolForTest(){return tool;}
     int workspaceForTest(){return activeWorkspace;}
+    boolean stylePickerOpenForTest(){return stylePickersOpen>0;}
+    /** Cancels the top style dialog exactly as Back does. */
+    void cancelStylePickerForTest(){if(!openStyleDialogs.isEmpty())openStyleDialogs.get(openStyleDialogs.size()-1).cancel();}
     void selectWorkspaceForTest(int index){selectWorkspace(index);}
     void checkpointForTest(){checkpoint();}
     void undoForTest(){history(false);}
@@ -8921,6 +9029,63 @@ public class StudioActivity extends Activity {
     float trioSpacingMemoryForTest(int n){return trioSpacingMemory[n];}
     void setTrioSpacingMemoryForTest(int n,float mm){trioSpacingMemory[n]=mm;}
     int cutMaterialForTest(){return cutMaterialProfileId;}
+    /** M7 device benchmark: the live style picker is the style registry. Each row is
+     * {category, display name, stable thumbnail key}. */
+    String[][] stylePickerInventoryForTest(){
+        ArrayList<PickerChoice> choices=collectStylePickerChoices(new android.app.Dialog(this));
+        String[][] out=new String[choices.size()][];
+        for(int i=0;i<out.length;i++){PickerChoice c=choices.get(i);out[i]=new String[]{c.category,c.name,c.previewKind};}
+        return out;
+    }
+    /** Runs the picker's own activation for the tile with this stable key. */
+    boolean activateStyleForTest(String key){
+        for(PickerChoice c:collectStylePickerChoices(new android.app.Dialog(this)))
+            if(c.previewKind.equals(key)){c.activate.run();return true;}
+        return false;
+    }
+    /** Same commit path as a real import after the crop editor's Apply. */
+    void importPhotoForTest(Bitmap bitmap,boolean circular){
+        if(ProjectSaveGate.busy()||projectSession.isSaving())throw new IllegalStateException("save in progress");
+        projectSession.beginLoad();
+        commitImportedPhoto(bitmap,new PhotoCropEditor.CropResult(bitmap,null,circular));
+    }
+    /** Same mutation as the Artwork size dialog's accepted width. */
+    void setArtworkWidthForTest(float mm){
+        if(Math.abs(settings.widthMm-mm)>0.005f){
+            checkpoint();settings.widthMm=mm;settings.marks=null;markIndex=0;currentMarkIssue=null;
+            invalidateToolPanels();requestRender();
+        }
+    }
+    float artworkWidthForTest(){return settings.widthMm;}
+    /** Final artwork for the current selection is visible and no render or cut-ready job is pending. */
+    boolean renderSettledForTest(){
+        if(renderBusy||photo==null)return false;
+        boolean ready=alternateActive()?specialtyFinalReady():standardFinalReady();
+        if(!ready)return false;
+        if(newStyleCutJob!=null&&!newStyleCutJob.isDone())return false;
+        return stippleCutJob==null||stippleCutJob.isDone();
+    }
+    String statusTextForTest(){return status==null?"":String.valueOf(status.getText());}
+    String alternateStatusForTest(){return alternateStatus==null?"":alternateStatus;}
+    boolean specialtyFinalReadyForTest(){return specialtyFinalReady();}
+    String alternateStatusLabelForTest(){return alternateStatusLabel==null?null:String.valueOf(alternateStatusLabel.getText());}
+    String editorSubtitleForTest(){return editorSubtitle==null?"":String.valueOf(editorSubtitle.getText());}
+    void beginPhotoImportForTest(Uri uri){beginPhotoImport(uri);}
+    int committedRenderRequestsForTest(){return committedRenderRequests;}
+    String styleKeyForTest(){return styleSelection().toString();}
+    String currentStyleNameForTest(){return currentStyleName();}
+    android.view.View artworkViewForTest(){return artwork;}
+    /** Decodes through the real import decoder and bound (UI thread is acceptable in tests). */
+    Bitmap decodePhotoForTest(Uri uri) throws IOException {return decodeImage(uri,photoPreviewLimit(1800));}
+    void clearRenderCachesForTest(){clearReconstructibleCaches();}
+    void requestRenderForTest(){requestRender();}
+    int[] cutCountsForTest(){int[] c=visibleCutCounts();return c==null?null:c.clone();}
+    int layerCountForTest(){
+        if(newStyleActive())return newStyleColorCount;
+        if(layeredCellMode||tessellationMode)return tessLayerCount;
+        if(tonalStencilMode)return tonalLayerCount;
+        return settings.layers.size();
+    }
     /** The mat exports enforce (resolving a legacy project the same way export does). */
     String cricutMatForTest(){return selectedCricutMat();}
     private void closeCurrentProject(){
@@ -9883,7 +10048,7 @@ public class StudioActivity extends Activity {
                 } // Close the staged stream before checking ZIP CRCs.
                 stage.verify();
                 final StagedCutZip verified=stage;stage=null;
-                postUi(()->offerPreparedSpecialtyZip(verified,renderToken,targetForThisExport,base,"solid-base"));
+                postUi(()->offerPreparedSpecialtyZip(verified,renderToken,targetForThisExport,base,currentStyleName()));
             }catch(OutOfMemoryError oom){
                 if(stage!=null)stage.close();
                 postUi(()->{preparingSpecialtyCutZip=false;showStandardExportError("Insufficient memory preparing base ZIP");});
@@ -10010,8 +10175,7 @@ public class StudioActivity extends Activity {
         Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
         i.addCategory(Intent.CATEGORY_OPENABLE);
         i.setType("application/zip");
-        i.putExtra(Intent.EXTRA_TITLE,"VinylStudio-cut-layers-"+
-            new java.text.SimpleDateFormat("yyyyMMdd-HHmm",Locale.US).format(new Date())+".zip");
+        i.putExtra(Intent.EXTRA_TITLE,ExportFileNames.cutZip(projectLabel,currentStyleName()));
         try{startActivityForResult(i,EXPORT);}
         catch(RuntimeException pickerFailure){
             discardPreparedStandardCutZip();
@@ -10334,16 +10498,7 @@ public class StudioActivity extends Activity {
                         }
                         if(!ownership.transferToUi())return;
                         pendingProjectLoads.remove(ownership);
-                        includeSourcePhotoInCutZip=false;currentLibraryId=null;projectLabel="Photo project";
-                        restoredOriginalSource=null;originalPhoto=b;settings.marks=null;undo.clear();redo.clear();
-                        encodedProjectOriginal=false;projectSession.markEdited();
-                        // Synchronous on purpose: must be durable before the encoded original is deleted.
-                        //noinspection ApplySharedPref
-                        getPreferences(MODE_PRIVATE).edit().putBoolean("encodedProjectOriginal",false).commit();
-                        scheduleDiskJob(()->ProjectEncodedOriginal.clear(getFilesDir()));
-                        float wi=VinylEngine.toInches(settings.widthMm);
-                        float hi=wi*selection.bitmap.getHeight()/(float)selection.bitmap.getWidth();
-                        SmartHalftonePresets.apply(settings,settings.pattern,chosenProfile,wi,hi);acceptCrop(selection);
+                        commitImportedPhoto(b,selection);
                     },()->{
                         discardProjectLoad(ownership);
                         status.setText(photo==null?"Select a photo to begin":"Import canceled · previous artwork preserved");
@@ -10352,12 +10507,39 @@ public class StudioActivity extends Activity {
                 });
             }catch(java.util.concurrent.CancellationException canceled){/* lease owns cleanup */}
             catch(Exception|OutOfMemoryError error){
-                postUi(()->{if(projectSession.isCurrentLoad(token))toast("Import: "+friendlyFailure(error,"Unable to import photograph"));});
+                final String why=friendlyFailure(error,"Unable to import photograph");
+                postUi(()->{
+                    if(!projectSession.isCurrentLoad(token))return;
+                    toast("Import: "+why);
+                    // B3: never leave "Importing photo…" behind; say what happened and keep the
+                    // previous project (or the empty start state) fully usable.
+                    showImportFailure(why);
+                });
             }finally{
                 ownership.workerFinished(posted);
                 if(!posted||ownership.isCancelled())pendingProjectLoads.remove(ownership);
             }
         }))discardProjectLoad(ownership);
+    }
+    /** UI thread: a failed or unreadable import restores a usable editor (B3). */
+    private void showImportFailure(String why){
+        if(status!=null)status.setText(photo==null?"Photo import failed · "+why+" · select another photo":
+            "Photo import failed · "+why+" · previous artwork preserved");
+        if(photo==null)setWorkflowStep(0);
+        setRenderBusy(renderBusy);
+    }
+    /** UI thread: a freshly imported and cropped photo becomes the working project. */
+    private void commitImportedPhoto(Bitmap original,PhotoCropEditor.CropResult selection){
+        includeSourcePhotoInCutZip=false;currentLibraryId=null;projectLabel="Photo project";
+        restoredOriginalSource=null;originalPhoto=original;settings.marks=null;undo.clear();redo.clear();
+        encodedProjectOriginal=false;projectSession.markEdited();
+        // Synchronous on purpose: must be durable before the encoded original is deleted.
+        //noinspection ApplySharedPref
+        getPreferences(MODE_PRIVATE).edit().putBoolean("encodedProjectOriginal",false).commit();
+        scheduleDiskJob(()->ProjectEncodedOriginal.clear(getFilesDir()));
+        float wi=VinylEngine.toInches(settings.widthMm);
+        float hi=wi*selection.bitmap.getHeight()/(float)selection.bitmap.getWidth();
+        SmartHalftonePresets.apply(settings,settings.pattern,chosenProfile,wi,hi);acceptCrop(selection);
     }
     private InputStream requireProjectStream(Uri uri) throws IOException {
         InputStream input=getContentResolver().openInputStream(uri);
@@ -10908,7 +11090,7 @@ public class StudioActivity extends Activity {
         newStyleId=VinylStyleSuite.restoredStyleId(storedStyleId);
         if(VinylStyleSuite.isRetiredStyleId(storedStyleId)){
             String retired=storedStyleId==VinylStyleSuite.RETIRED_STYLE_ID?"Typography Portrait":"This saved style";
-            alternateStatus=retired+" has been retired. Your photo and Snip are retained; choose a new style.";
+            setAlternateStatus(retired+" has been retired. Your photo and Snip are retained; choose a new style.");
             toast(retired+" retired; photo and Snip retained");
         }
         newStyleDetail=Math.max(0,Math.min(100,json.optInt("newStyleDetail",55)));
@@ -10917,7 +11099,7 @@ public class StudioActivity extends Activity {
         newStyleVariant=NewStyleVariantPolicy.restore(newStyleId,savedVariant);
         if(newStyleId==VinylStyleSuite.TESSELLATION_MOTIF&&
             !TessellationMotifEngine.selectablePattern(savedVariant)){
-            alternateStatus="This tessellation layout was retired. Trihexagonal selected; your photo and Snip are retained.";
+            setAlternateStatus("This tessellation layout was retired. Trihexagonal selected; your photo and Snip are retained.");
             toast("Retired tessellation changed to Trihexagonal; original photo and Snip retained");
         }
         newStyleTessMotif=Math.max(0,Math.min(TessellationMotifEngine.LEGACY_MOTIF_COUNT-1,json.optInt("newStyleTessMotif",0)));
@@ -11351,7 +11533,9 @@ public class StudioActivity extends Activity {
                 restoreDraft(startupSavedDraft);
                 chosen=-1;rebuildLayers();
                 setWorkflowStep(startupSavedStep);
-                requestRender();
+                // B6/B7: reopen the saved workspace so its panel matches the step and the
+                // artwork regenerates (switching away from Prepare requests the render).
+                if(!restoreStartupWorkspace())requestRender();
                 projectSession.setDirty(savedDirty);updateEditorSubtitle();
                 if(pairing==PhotoPairToken.Verdict.MISMATCH){projectSession.setDirty(true);updateEditorSubtitle();}
                 artwork.invalidate();
@@ -11361,6 +11545,31 @@ public class StudioActivity extends Activity {
             restoreOwnership.workerFinished(delivered);
             if(!delivered||restoreOwnership.isCancelled())pendingProjectLoads.remove(restoreOwnership);
         })){startupRestoring=false;postUi(productFlows::deliverPendingSharedImage);}
+    }
+    private int savedWorkspaceForPersistence(){return startupRestoring?startupSavedWorkspace:activeWorkspace;}
+    /** Workspace for a restored step when older prefs did not record one. */
+    static int defaultWorkspaceForStep(int step){
+        switch(WorkflowFlow.clamp(step)){
+            case WorkflowFlow.LAYERS:return 4;
+            case WorkflowFlow.TYPE:case WorkflowFlow.ADJUST:return 2;
+            case WorkflowFlow.MARKS:case WorkflowFlow.EXPORT:return 5;
+            default:return 0;
+        }
+    }
+    /** B6/B7: reopen the saved workspace after a cold start. Returns true when the switch
+     * itself requested the artwork render. The Styles drawer is a launcher, so it reopens as
+     * Adjust. Prepare stays photo-only by design. */
+    private boolean restoreStartupWorkspace(){
+        int w=startupSavedWorkspace>=0&&startupSavedWorkspace<WORKSPACE_NAMES.length?
+            startupSavedWorkspace:defaultWorkspaceForStep(startupSavedStep);
+        if(w==1)w=2;
+        if(photo==null||w==0||hasPendingSnip())return false;
+        if(w==5){
+            int sub=startupSavedWorkspace==5?startupSavedSubtool:startupSavedStep==WorkflowFlow.MARKS?1:3;
+            openWorkspaceSubtool(5,Math.max(0,Math.min(WORKSPACE_IDS[5].length-1,sub)));
+            rebuildNavigation();updateEditorSubtitle();
+        }else selectWorkspace(w);
+        return true;
     }
     /** Keep editor and draft payloads out of the Binder state transaction.
      * Preferences are updated in one transaction before handing lifecycle control back.
@@ -11380,7 +11589,8 @@ public class StudioActivity extends Activity {
         final String token=photo==null?"":photoPairToken(photoRevision);
         final String signature=currentLibraryId+"\u0000"+projectLabel+"\u0000"+projectSession.isDirty()+"\u0000"+
             chosenProfile+"\u0000"+(startupRestoring?startupSavedStep:workflowStep)+"\u0000"+designType+"\u0000"+
-            lastStepInPhase[0]+","+lastStepInPhase[1]+","+lastStepInPhase[2]+"\u0000"+token;
+            lastStepInPhase[0]+","+lastStepInPhase[1]+","+lastStepInPhase[2]+"\u0000"+token+"\u0000"+
+            savedWorkspaceForPersistence()+","+(startupRestoring?startupSavedSubtool:activeSubtoolPosition);
         if(saved==lastPersistedEditor&&signature.equals(lastPersistedSignature))return;
         lastPersistedEditor=saved;lastPersistedSignature=signature;
         getPreferences(MODE_PRIVATE).edit().putString("editor",saved.editor)
@@ -11390,6 +11600,8 @@ public class StudioActivity extends Activity {
             .putString("draftSnipV22",saved.draft).putInt("sizeProfile",chosenProfile)
             .putString(PhotoPairToken.PREF,token)
             .putInt("workflowStep",startupRestoring?startupSavedStep:workflowStep).putInt("workflowType",designType)
+            .putInt("activeWorkspace",savedWorkspaceForPersistence())
+            .putInt("activeSubtool",startupRestoring?startupSavedSubtool:activeSubtoolPosition)
             .putInt("lastPhaseStep0",lastStepInPhase[0])
             .putInt("lastPhaseStep1",lastStepInPhase[1])
             .putInt("lastPhaseStep2",lastStepInPhase[2]).apply();
@@ -11411,6 +11623,8 @@ public class StudioActivity extends Activity {
         outState.putString(STATE_PENDING_LIBRARY_EXPORT,pendingLibraryExport.save());
         if(pendingCameraCapture!=null)outState.putString(STATE_PENDING_CAMERA,pendingCameraCapture.toString());
         outState.putInt(STATE_STEP,startupRestoring?startupSavedStep:workflowStep);
+        outState.putInt(STATE_WORKSPACE,savedWorkspaceForPersistence());
+        outState.putInt(STATE_SUBTOOL,startupRestoring?startupSavedSubtool:activeSubtoolPosition);
         outState.putBoolean(STATE_FULLSCREEN,canvasFullscreen);
         outState.putInt(STATE_TYPE,designType);
         super.onSaveInstanceState(outState);
@@ -11910,23 +12124,38 @@ public class StudioActivity extends Activity {
                     artwork.invalidate();return true;});
         }menu.show();
     }
+    /** M7 P6 (hardware layer while busy) was measured and REVERTED: RenderThread CPU 13.5% with
+     * and without it during a Chainmail render; render time within noise. */
     private void setRenderBusy(boolean busy){
         renderBusy=busy;
         if(renderProgress!=null)renderProgress.setVisibility(busy?View.VISIBLE:View.GONE);
         updateEditorSubtitle();
     }
+    /** Display name of the selected style, for export file names (B5). */
+    String currentStyleName(){
+        if(newStyleActive())return VinylStyleSuite.NAMES[newStyleId];
+        if(tonalStencilMode)return "Tonal Stencil";
+        if(layeredCellMode)return overprintCellKind>0?LayeredCellPortraitEngine.overprintName(overprintCellKind):fishScaleMode?"Fish Scales":bottleCapMode?"Bottle Caps":offsetCellMode?"Offset Cells":"Layered Cells";
+        if(tessellationMode)return tessellationStyle==TessellationEngine.VORONOI?"Voronoi Mosaic":"Grid Mosaic";
+        if(mazePortraitMode)return "Maze";
+        if(continuousStyle!=null)return continuousStyle.toString().replace('_',' ');
+        return settings.pattern>=0&&settings.pattern<VinylEngine.PATTERNS.length?VinylEngine.PATTERNS[settings.pattern]:"cut";
+    }
     private void updateEditorSubtitle(){
         if(editorSubtitle==null)return;
         if(renderBusy){editorSubtitle.setText(R.string.quality_rendering);return;}
         if(photo==null){editorSubtitle.setText(R.string.quality_new_project);return;}
-        String info=projectLabel;
+        String info=projectLabel,styleName=null;
         if(chosen>=0&&chosen<settings.layers.size())info=settings.layers.get(chosen).name;
-        else if(newStyleActive())info=VinylStyleSuite.NAMES[newStyleId];
-        else if(tonalStencilMode)info="Multilayer stencil";
-        else if(layeredCellMode)info=overprintCellKind>0?LayeredCellPortraitEngine.overprintName(overprintCellKind):fishScaleMode?"Fish Scale Mosaic Portrait":bottleCapMode?"Bottle Cap Mosaic Portrait":offsetCellMode?"Offset Cell Portrait":"Layered Cell Portrait";
-        else if(tessellationMode)info="Tessellation portrait";
-        else if(mazePortraitMode)info="Maze portrait";
-        else if(continuousStyle!=null)info=continuousStyle.toString().replace('_',' ');
+        else if(newStyleActive())styleName=VinylStyleSuite.NAMES[newStyleId];
+        else if(tonalStencilMode)styleName="Multilayer stencil";
+        else if(layeredCellMode)styleName=overprintCellKind>0?LayeredCellPortraitEngine.overprintName(overprintCellKind):fishScaleMode?"Fish Scale Mosaic Portrait":bottleCapMode?"Bottle Cap Mosaic Portrait":offsetCellMode?"Offset Cell Portrait":"Layered Cell Portrait";
+        else if(tessellationMode)styleName="Tessellation portrait";
+        else if(mazePortraitMode)styleName="Maze portrait";
+        else if(continuousStyle!=null)styleName=continuousStyle.toString().replace('_',' ');
+        // B2: the project name stays visible next to the style, so a style carried over to a
+        // newly imported photo is never mistaken for the previous project's name.
+        if(styleName!=null)info=projectLabel==null||projectLabel.isEmpty()||projectLabel.equals(styleName)?styleName:projectLabel+" · "+styleName;
         editorSubtitle.setText(projectSession.isDirty()?getString(R.string.editor_subtitle_unsaved,info):info);
         if(artwork!=null)artwork.setContentDescription(getString(R.string.canvas_description,info));
     }
@@ -12521,6 +12750,16 @@ public class StudioActivity extends Activity {
                     cv.drawPath(cache.strokes[i],paint);
                 }
             }
+            if(result.maze!=null&&newStyleSelectedLayer<0&&previewMode==0&&!silhouetteOnly()&&!basePreviewActive()){
+                final PerfectPortraitMaze.Result maze=result.maze;
+                paint.setStyle(Paint.Style.FILL);paint.setColor(0xffE6673E);
+                float label=Math.max(1.6f,Math.min(3.2f,artW/65f));
+                paint.setTextSize(label);paint.setTextAlign(Paint.Align.LEFT);
+                cv.drawText("START",.5f,maze.startYmm()-label*.25f,paint);
+                paint.setTextAlign(maze.finishOnLeft()?Paint.Align.LEFT:Paint.Align.RIGHT);
+                cv.drawText("FINISH",maze.finishOnLeft()?.5f:artW-.5f,maze.finishYmm()+label,paint);
+                paint.setTextAlign(Paint.Align.LEFT);
+            }
             drawRegistrationOverlay(cv,artW,artH);
             drawSpecialtyRiskOverlay(cv,newStyleSelectedLayer,artW);
             cv.restore();cv.restore();vectorZoomLabel(cv);
@@ -13078,11 +13317,14 @@ public class StudioActivity extends Activity {
     @Override public void onTrimMemory(int level){
         super.onTrimMemory(level);
         if(PlatformCompat.shouldReleaseCaches(level)){
-            portraitCache.clear();
-            specialtyBaseCache.clear();specialtyLitCache.clear();specialtyFieldCache.clear();GeometryTemplateCache.clear();newStyleGeometryMemo.clear();draftSourceCache.clear();ScaleAwarePhotoSampler.clearLightCache();
-            toolPanelCache.clear();projectThumbnails.evictAll();
+            clearReconstructibleCaches();
             android.util.Log.d("VinylPerf","trimMemory level="+level+" clearedReconstructibleCaches");
         }
+    }
+    private void clearReconstructibleCaches(){
+        portraitCache.clear();
+        specialtyBaseCache.clear();specialtyLitCache.clear();specialtyFieldCache.clear();GeometryTemplateCache.clear();newStyleGeometryMemo.clear();draftSourceCache.clear();ScaleAwarePhotoSampler.clearLightCache();
+        toolPanelCache.clear();projectThumbnails.evictAll();
     }
     // ---- D14 library id handoff -------------------------------------------------------
     private LibraryIdHandoff.Store libraryHandoffStore(){
@@ -13136,5 +13378,5 @@ public class StudioActivity extends Activity {
         toolPanelCache.clear();projectThumbnails.evictAll();draftSourceCache.clear();ScaleAwarePhotoSampler.clearLightCache();
         projectThumbnails.close();
         libraryJobs.close();
-        renderController.close();specialtyFieldCache.clear();GeometryTemplateCache.clear();newStyleGeometryMemo.clear();}
+        renderController.close();specialtyFieldCache.clear();GeometryTemplateCache.clear();/* M8 U3: on a configuration change the memo is handed to the recreated activity. */if(!isChangingConfigurations())newStyleGeometryMemo.clear();}
 }

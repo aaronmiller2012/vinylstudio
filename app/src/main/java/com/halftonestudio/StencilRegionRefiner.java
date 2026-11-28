@@ -36,6 +36,10 @@ public final class StencilRegionRefiner {
             int[] scores=new int[colors];
             for(int y=0;y<h;y++)for(int x=0;x<w;x++) {
                 int p=y*w+x, original=labels[p];if(!allowed[p]||original<0)continue;
+                // M7 P3, exact: when every counted neighbour already carries the original
+                // label, only that label scores, so the pixel cannot change. (original>=colors
+                // still takes the full path and fails exactly as before.)
+                if(original<colors&&uniform(labels,allowed,x,y,w,h,radius,original,colors))continue;
                 Arrays.fill(scores,0);
                 int total=0;
                 for(int dy=-radius;dy<=radius;dy++)for(int dx=-radius;dx<=radius;dx++) {
@@ -79,6 +83,19 @@ public final class StencilRegionRefiner {
         }
         int changed=0;for(int i=0;i<labels.length;i++)if(labels[i]!=source[i])changed++;
         return new Output(labels,changed,merged);
+    }
+    private static boolean uniform(int[] labels,boolean[] allowed,int x,int y,int w,int h,int radius,int original,int colors){
+        int y0=Math.max(0,y-radius),y1=Math.min(h-1,y+radius),x0=Math.max(0,x-radius),x1=Math.min(w-1,x+radius);
+        for(int yy=y0;yy<=y1;yy++){
+            int row=yy*w;
+            for(int xx=x0;xx<=x1;xx++){
+                int q=row+xx;
+                if(!allowed[q])continue;
+                int l=labels[q];
+                if(l>=0&&l<colors&&l!=original)return false;
+            }
+        }
+        return true;
     }
     private static int visit(int p,int color,int[] labels,boolean[] allowed,
                              boolean[] seen,int[] queue,int tail,int[] borders) {

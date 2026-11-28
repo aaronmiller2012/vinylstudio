@@ -32,6 +32,11 @@ public final class PhotoCropEditor {
         public final boolean circular;
         CropResult(Bitmap b, float[] bb,boolean circular){bitmap=b;bounds=bb;this.circular=circular;}
     }
+    /** B10 (crop hint): describe the selected crop shape, not always the circle. */
+    static String cropTip(boolean circle){
+        return circle?"Drag inside the circle to move it · drag its edge handle to resize":
+            "Drag inside the frame to move it · drag a corner or edge to resize";
+    }
     private static int dp(Activity a,float v){return Math.round(a.getResources().getDisplayMetrics().density*v);}
     private static GradientDrawable rounded(Activity a,int color,int radius){GradientDrawable b=new GradientDrawable();b.setColor(color);b.setCornerRadius(dp(a,radius));return b;}
     private static TextView button(Activity activity,String text){TextView v=new TextView(activity);v.setText(text);v.setTextColor(Color.WHITE);v.setTextSize(14);v.setGravity(Gravity.CENTER);v.setPadding(dp(activity,14),0,dp(activity,14),0);return v;}
@@ -51,7 +56,7 @@ public final class PhotoCropEditor {
         TextView apply=button(activity,"Apply");apply.setTextColor(0xffA9C8FF);header.addView(apply,new LinearLayout.LayoutParams(-2,-1));
         final CropView crop=new CropView(activity,original,prior,targetRatio);
         root.addView(crop,new LinearLayout.LayoutParams(-1,0,1));
-        TextView tip=button(activity,"Drag the center focal point to move · drag edge to resize a circle");tip.setTextSize(12);tip.setTextColor(0xffAFB9C7);root.addView(tip,new LinearLayout.LayoutParams(-1,dp(activity,37)));
+        TextView tip=button(activity,cropTip(false));tip.setTextSize(12);tip.setTextColor(0xffAFB9C7);root.addView(tip,new LinearLayout.LayoutParams(-1,dp(activity,37)));
         HorizontalScrollView scroll=new HorizontalScrollView(activity);scroll.setHorizontalScrollBarEnabled(false);
         root.addView(scroll,new LinearLayout.LayoutParams(-1,dp(activity,66)));
         LinearLayout options=new LinearLayout(activity);options.setGravity(Gravity.CENTER_VERTICAL);options.setPadding(dp(activity,12),0,dp(activity,12),0);scroll.addView(options);
@@ -61,7 +66,7 @@ public final class PhotoCropEditor {
         for(int i=0;i<names.length;i++){
             final int ix=i;TextView choice=button(activity,names[i]);choice.setBackground(rounded(activity,0xff303A49,15));
             LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-2,dp(activity,41));lp.rightMargin=dp(activity,8);options.addView(choice,lp);
-            choice.setOnClickListener(v->{crop.setCircle(ix==circleChoice);crop.setAspect(ratios[ix]);for(int j=0;j<options.getChildCount();j++)options.getChildAt(j).setBackground(rounded(activity,j==ix?0xff45658F:0xff303A49,15));});
+            choice.setOnClickListener(v->{crop.setCircle(ix==circleChoice);tip.setText(cropTip(ix==circleChoice));crop.setAspect(ratios[ix]);for(int j=0;j<options.getChildCount();j++)options.getChildAt(j).setBackground(rounded(activity,j==ix?0xff45658F:0xff303A49,15));});
         }
         if(targetRatio>0.01f){TextView lock=button(activity,String.format(java.util.Locale.US,"Target artwork proportion: %.3f",targetRatio));lock.setTextColor(0xffB6D3FA);lock.setTextSize(12);root.addView(lock,new LinearLayout.LayoutParams(-1,dp(activity,31)));}
         cancel.setOnClickListener(v->{dialog.dismiss();if(onCancel!=null)onCancel.run();});

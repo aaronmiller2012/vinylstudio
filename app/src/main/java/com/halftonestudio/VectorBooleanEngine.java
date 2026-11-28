@@ -36,13 +36,16 @@ final class VectorBooleanEngine {
     }
     private static volatile Backend backend;
     static void install(Backend implementation){backend=implementation;}
+    /** Installed Boolean backend, or null (host tests without JTS). */
+    static Backend backend(){return backend;}
     static Session begin(int slots,float minCut){return begin(slots,minCut,minCut);}
     static Session begin(int slots,float minCut,float gap){
         Backend b=backend;return b==null?null:new Session(b,slots,minCut,gap);
     }
     static final int MAX_MOTIFS=250000,MAX_INPUT_POINTS=2500000,MAX_OUTPUT_POINTS=750000;
     static final float FLATNESS=.008f;
-    /** Parallel union only pays off for large sheets; depth 3 yields up to 8 concurrent branches. */
+    /** Parallel union only pays off for large sheets; depth 3 yields up to 8 concurrent branches.
+     * M7: the depth actually used is heap-dependent, {@link ParallelGeometry#unionDepth()}. */
     static final int PARALLEL_MIN_MOTIFS=256,PARALLEL_DEPTH=3;
     static final class Motif {
         final float[][] loops;
@@ -89,6 +92,10 @@ final class VectorBooleanEngine {
             if(loops.isEmpty())throw new IllegalStateException("Empty structural Snip");
             clip=b.clipPath(loops.toArray(new float[0][]));
         }
+        /** Union-tree fork depth for the sheet being finished (ParallelGeometry.unionDepth(width)). */
+        private volatile int forkDepth=PARALLEL_DEPTH;
+        /** Motif vertices added so far (the sheet-concurrency policy input). */
+        int inputPoints(){return points;}
         ArrayList<float[]> foundation(float width,float height){return checkedContours(b.contours(clip),width,height);}
         ArrayList<float[]> finish(int slot,float width,float height){
             return finish(slot,width,height,false);
@@ -98,18 +105,32 @@ final class VectorBooleanEngine {
             return finish(slot,width,height,allowEmpty,minVinylArea,minWasteArea);
         }
         ArrayList<float[]> finish(int slot,float width,float height,boolean allowEmpty,float vinylArea,float wasteArea){
+            return finish(slot,width,height,allowEmpty,vinylArea,wasteArea,false);
+        }
+        /** Chainmail: local micro-fragment cleanup (M8 P4). */
+        ArrayList<float[]> finishLocal(int slot,float width,float height){
+            return finish(slot,width,height,false,minVinylArea,minWasteArea,true);
+        }
+        private ArrayList<float[]> finish(int slot,float width,float height,boolean allowEmpty,float vinylArea,float wasteArea,boolean localCleanup){
             CancellationCheckpoint.check();
             if(slot<=0||slot>=sheets.size()||clip==null)throw new IllegalStateException("Vector union needs its structural Snip");
             ArrayList<Motif> list=sheets.get(slot);
             if(list.isEmpty()&&allowEmpty)return new ArrayList<>();
             if(list.isEmpty())throw new IllegalStateException("Vector overlay has no motifs; reduce layers or increase artwork size");
             Motif[] batch=list.toArray(new Motif[0]);list.clear();
-            Node merged=batch.length>=PARALLEL_MIN_MOTIFS&&ParallelGeometry.enabled()?
+            forkDepth=ParallelGeometry.unionDepth(width);
+            Node merged=batch.length>=PARALLEL_MIN_MOTIFS&&ParallelGeometry.enabled()&&forkDepth>0?
                 ParallelGeometry.invoke(new UnionTask(ParallelGeometry.token(),batch,0,batch.length,0)):
                 union(batch,0,batch.length);
             CancellationCheckpoint.check();
             // Clean micro-work BEFORE clipping; never fill a protected Snip hole.
-            Object polished=b.removeMicroFragments(merged.path,vinylArea,wasteArea);
+            // M8: P4 re-adopted for Chainmail only (finishLocal; Fishnet showed no device gain). The local cleanup is
+            // topologically equal to the full snap-rounded re-union (M7MicroFragmentParityTest)
+            // and, since the cut inspector became representation-invariant (I1), gives identical
+            // findings on real sheets. Confetti (raw and finishConfetti) and Prismatic keep the
+            // full re-union: Confetti's repair compares candidates against this raw sheet.
+            Object polished=localCleanup?b.removeMicroFragmentsLocal(merged.path,vinylArea,wasteArea):
+                b.removeMicroFragments(merged.path,vinylArea,wasteArea);
             ArrayList<float[]> out=checkedContours(b.contours(b.intersect(polished,clip)),width,height);
             if(out.isEmpty()&&!allowEmpty)throw new IllegalStateException("Vector overlay has no cuttable geometry after Snip clipping; reduce layers or increase artwork size");
             return out;
@@ -122,7 +143,8 @@ final class VectorBooleanEngine {
             ArrayList<Motif> list=sheets.get(slot);
             if(list.isEmpty())throw new IllegalStateException("Vector overlay has no motifs; reduce layers or increase artwork size");
             Motif[] batch=list.toArray(new Motif[0]);list.clear();
-            Node merged=batch.length>=PARALLEL_MIN_MOTIFS&&ParallelGeometry.enabled()?
+            forkDepth=ParallelGeometry.unionDepth(width);
+            Node merged=batch.length>=PARALLEL_MIN_MOTIFS&&ParallelGeometry.enabled()&&forkDepth>0?
                 ParallelGeometry.invoke(new UnionTask(ParallelGeometry.token(),batch,0,batch.length,0)):
                 union(batch,0,batch.length);
             Object original=b.intersect(b.removeMicroFragments(merged.path,minVinylArea,minWasteArea),clip);
@@ -220,7 +242,8 @@ final class VectorBooleanEngine {
             measured[0]=measured[1]=0;
             if(list.isEmpty())return new ArrayList<>();
             Motif[] batch=list.toArray(new Motif[0]);list.clear();
-            Node merged=batch.length>=PARALLEL_MIN_MOTIFS&&ParallelGeometry.enabled()?
+            forkDepth=ParallelGeometry.unionDepth(width);
+            Node merged=batch.length>=PARALLEL_MIN_MOTIFS&&ParallelGeometry.enabled()&&forkDepth>0?
                 ParallelGeometry.invoke(new UnionTask(ParallelGeometry.token(),batch,0,batch.length,0)):
                 union(batch,0,batch.length);
             CancellationCheckpoint.check();
@@ -297,7 +320,7 @@ final class VectorBooleanEngine {
             @Override Node work(){return unionParallel(a,lo,hi,depth,token);}
         }
         private Node unionParallel(Motif[] a,int lo,int hi,int depth,java.util.concurrent.atomic.AtomicBoolean token){
-            if(depth>=PARALLEL_DEPTH||hi-lo<PARALLEL_MIN_MOTIFS||(hi-lo>=8&&hi-lo<=128))return union(a,lo,hi);
+            if(depth>=forkDepth||hi-lo<PARALLEL_MIN_MOTIFS||(hi-lo>=8&&hi-lo<=128))return union(a,lo,hi);
             CancellationCheckpoint.check();
             float x0=Float.POSITIVE_INFINITY,y0=x0,x1=-x0,y1=-x0;
             for(int i=lo;i<hi;i++){

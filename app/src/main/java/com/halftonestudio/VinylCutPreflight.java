@@ -28,32 +28,28 @@ public final class VinylCutPreflight {
         CancellationCheckpoint.check();
         int w=result.width,h=result.height,hcount=0,vcount=0,gapH=0,gapV=0;
         float cw=result.widthMm/w,ch=result.heightMm/h;
-        for(int y=0;y<h;y++)for(int x=0;x<w;){
-            if(CancellationCheckpoint.shouldCancel())CancellationCheckpoint.check();
+        for(int y=0;y<h;y++){CancellationCheckpoint.check();for(int x=0;x<w;){
             if(!m[y*w+x]){x++;continue;}
             int start=x;while(x<w&&m[y*w+x])x++;
             int run=x-start;if(run*cw<minMm)hcount+=run;
-        }
-        for(int x=0;x<w;x++)for(int y=0;y<h;){
-            if(CancellationCheckpoint.shouldCancel())CancellationCheckpoint.check();
+        }}
+        for(int x=0;x<w;x++){CancellationCheckpoint.check();for(int y=0;y<h;){
             if(!m[y*w+x]){y++;continue;}
             int start=y;while(y<h&&m[y*w+x])y++;
             int run=y-start;if(run*ch<minMm)vcount+=run;
-        }
+        }}
         // Count only internal gaps bracketed on both ends by the same cut
         // mask, never external paper/background or the photo's edge.
-        for(int y=0;y<h;y++)for(int x=0;x<w;){
-            if(CancellationCheckpoint.shouldCancel())CancellationCheckpoint.check();
+        for(int y=0;y<h;y++){CancellationCheckpoint.check();for(int x=0;x<w;){
             if(m[y*w+x]){x++;continue;}
             int start=x;while(x<w&&!m[y*w+x])x++;
             if(start>0&&x<w&&(x-start)*cw<gapMm)gapH+=x-start;
-        }
-        for(int x=0;x<w;x++)for(int y=0;y<h;){
-            if(CancellationCheckpoint.shouldCancel())CancellationCheckpoint.check();
+        }}
+        for(int x=0;x<w;x++){CancellationCheckpoint.check();for(int y=0;y<h;){
             if(m[y*w+x]){y++;continue;}
             int start=y;while(y<h&&!m[y*w+x])y++;
             if(start>0&&y<h&&(y-start)*ch<gapMm)gapV+=y-start;
-        }
+        }}
         return new Report(index,hcount,vcount,gapH,gapV,minMm,gapMm,cw,ch);
     }
 }

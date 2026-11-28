@@ -10,8 +10,12 @@ s=(r/'app/src/main/java/com/halftonestudio/StudioActivity.java').read_text()
 # Check that two-stage handoff instead of an obsolete exact call spelling.
 for producer in ('exportNewStyle','exportAlternate','exportSilhouetteOnly'):
     assert 'private void '+producer+'(' in s, 'Missing cut export producer: '+producer
-for label in ('"art-style"','"specialty"','"solid-base"'):
-    assert 'offerPreparedSpecialtyZip(verified,' in s and label in s, 'Missing staged specialty handoff '+label
+# M7 B5: the handoff now names the ZIP after the style (ExportFileNames, behavior-tested in
+# M7DevicePerfTest b5) instead of fixed "art-style"/"specialty"/"solid-base" labels, so check
+# directly that EACH producer hands its verified stage to the shared specialty publisher.
+for producer in ('exportNewStyle','exportAlternate','exportSilhouetteOnly'):
+    start=s.rindex('private void '+producer+'(');finish=s.find('\n    private void ',start+20)
+    assert 'offerPreparedSpecialtyZip(verified,' in s[start:finish], 'Missing staged specialty handoff in '+producer
 assert 'stage.verify();' in s[s.index('private void publishStagedCutZip'):s.index('private void exportNewStyle')]
 specialty=s[s.index('private void publishPreparedSpecialtyZip'):s.index('private void requestAlternateExport')]
 assert 'publishStagedCutZip(ready,uri)' in specialty
